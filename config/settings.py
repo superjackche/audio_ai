@@ -17,11 +17,11 @@ BASE_DIR = Path(__file__).parent.parent.absolute()
 # 模型配置
 MODEL_CONFIG = {
     "whisper_model": os.getenv("WHISPER_MODEL", "base"),  # 语音识别模型（支持多语言）
-    "llm_model": os.getenv("MODEL_NAME", "google/gemma-3-1b-it"),  # Gemma 3 1B 指令调优模型
+    "llm_model": os.getenv("MODEL_NAME", "Qwen/Qwen3-0.6B"),  # Qwen3 0.6B 模型
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "max_length": 1024,  # 减少最大长度，适合小模型
     "temperature": 0.7,
-    "trust_remote_code": True,  # Gemma需要trust_remote_code
+    "trust_remote_code": True,  # Qwen需要trust_remote_code
     "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
     "low_cpu_mem_usage": True,
     "device_map": "auto" if torch.cuda.is_available() else None,

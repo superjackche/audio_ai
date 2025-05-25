@@ -1,6 +1,6 @@
 import torch
 import whisper
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
 import logging
 from typing import Optional, List, Dict, Any
 from config.settings import MODEL_CONFIG, DATA_PATHS
@@ -39,50 +39,103 @@ class ModelManager:
         except Exception as e:
             self.logger.error(f"Whisper模型加载失败: {e}")
             return False
+    
     def load_llm_model(self) -> bool:
         """加载大语言模型"""
         try:
-            self.logger.info(f"正在加载大语言模型: {MODEL_CONFIG['llm_model']}")
-            
-            # 加载tokenizer
-            self.llm_tokenizer = AutoTokenizer.from_pretrained(
-                MODEL_CONFIG['llm_model'],
-                trust_remote_code=True,
-                cache_dir=str(DATA_PATHS['models_dir'])
-            )
-            
-            # 配置模型加载参数
-            model_kwargs = {
-                "trust_remote_code": True,
-                "cache_dir": str(DATA_PATHS['models_dir']),
-                "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
-            }
-            
-            # 如果是CPU模式或者配置了量化
-            if self.device == "cpu" or MODEL_CONFIG.get("load_in_8bit", False):
-                if self.device == "cuda" and MODEL_CONFIG.get("load_in_8bit", False):
-                    model_kwargs["load_in_8bit"] = True
-                    model_kwargs["device_map"] = "auto"
-                else:
-                    model_kwargs["device_map"] = "cpu"
-            else:
-                model_kwargs["device_map"] = "auto"
-            
-            # 加载模型
-            self.llm_model = AutoModel.from_pretrained(
-                MODEL_CONFIG['llm_model'],
-                **model_kwargs
-            )
-            
-            # 如果不是自动设备映射，手动移动到设备
-            if "device_map" not in model_kwargs or model_kwargs["device_map"] == "cpu":
+            model_name = MODEL_CONFIG['llm_model']
+            self.logger.info(f"正在加载大语言模型: {model_name}")
+              # 对于 Qwen 模型，使用 AutoModelForCausalLM
+            if "qwen" in model_name.lower():
+                # 加载tokenizer
+                self.llm_tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=MODEL_CONFIG.get('trust_remote_code', True),
+                    cache_dir=str(DATA_PATHS['models_dir'] / 'cache')
+                )
+                
+                # 添加 pad_token
+                if self.llm_tokenizer.pad_token is None:
+                    self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
+                
+                # 配置模型加载参数
+                model_kwargs = {
+                    "trust_remote_code": MODEL_CONFIG.get('trust_remote_code', True),
+                    "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
+                    "torch_dtype": MODEL_CONFIG.get('torch_dtype', torch.float16 if self.device == "cuda" else torch.float32),
+                    "low_cpu_mem_usage": MODEL_CONFIG.get('low_cpu_mem_usage', True),
+                }
+                
+                # 设备映射
                 if self.device == "cuda":
-                    self.llm_model = self.llm_model.cuda()
+                    model_kwargs["device_map"] = MODEL_CONFIG.get('device_map', 'auto')
+                else:
+                    model_kwargs["torch_dtype"] = torch.float32
+                
+                # 加载模型 - 对于 Qwen 使用 AutoModelForCausalLM
+                self.llm_model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    **model_kwargs
+                )
+            elif "gemma" in model_name.lower():
+                # 加载tokenizer
+                self.llm_tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=MODEL_CONFIG.get('trust_remote_code', True),
+                    cache_dir=str(DATA_PATHS['models_dir'] / 'cache')
+                )
+                
+                # 添加 pad_token
+                if self.llm_tokenizer.pad_token is None:
+                    self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
+                
+                # 配置模型加载参数
+                model_kwargs = {
+                    "trust_remote_code": MODEL_CONFIG.get('trust_remote_code', True),
+                    "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
+                    "torch_dtype": MODEL_CONFIG.get('torch_dtype', torch.float16 if self.device == "cuda" else torch.float32),
+                    "low_cpu_mem_usage": MODEL_CONFIG.get('low_cpu_mem_usage', True),
+                }
+                
+                # 设备映射
+                if self.device == "cuda":
+                    model_kwargs["device_map"] = MODEL_CONFIG.get('device_map', 'auto')
+                else:
+                    model_kwargs["torch_dtype"] = torch.float32
+                
+                # 加载模型 - 对于 Gemma 使用 AutoModelForCausalLM
+                self.llm_model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    **model_kwargs
+                )
+            else:
+                # 其他模型的加载方式
+                self.llm_tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=True,
+                    cache_dir=str(DATA_PATHS['models_dir'] / 'cache')
+                )
+                
+                model_kwargs = {
+                    "trust_remote_code": True,
+                    "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
+                    "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
+                }
+                
+                if self.device == "cpu":
+                    model_kwargs["torch_dtype"] = torch.float32
+                else:
+                    model_kwargs["device_map"] = "auto"
+                
+                self.llm_model = AutoModel.from_pretrained(
+                    model_name,
+                    **model_kwargs
+                )
             
             # 设置为评估模式
             self.llm_model.eval()
             
-            self.logger.info("大语言模型加载成功")
+            self.logger.info(f"大语言模型 {model_name} 加载成功")
             return True
         except Exception as e:
             self.logger.error(f"大语言模型加载失败: {e}")
@@ -109,6 +162,7 @@ class ModelManager:
         except Exception as e:
             self.logger.error(f"语音转文本失败: {e}")
             raise
+    
     def analyze_text_risk(self, text: str) -> Dict[str, Any]:
         """分析文本的政治风险"""
         if not self.llm_model or not self.llm_tokenizer:
@@ -117,11 +171,43 @@ class ModelManager:
         try:
             # 构建提示词
             prompt = self._build_risk_analysis_prompt(text)
-            
-            # 根据模型类型选择不同的生成方法
+              # 根据模型类型选择不同的生成方法
             model_name = MODEL_CONFIG['llm_model'].lower()
             
-            if "chatglm" in model_name:
+            if "gemma" in model_name:
+                # Gemma 模型的生成方式
+                messages = [{"role": "user", "content": prompt}]
+                
+                # 应用聊天模板
+                formatted_text = self.llm_tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True
+                )
+                
+                # 编码输入
+                model_inputs = self.llm_tokenizer([formatted_text], return_tensors="pt")
+                if self.device == "cuda":
+                    model_inputs = model_inputs.to("cuda")
+                
+                # 生成响应
+                generated_ids = self.llm_model.generate(
+                    model_inputs.input_ids,
+                    max_new_tokens=512,
+                    temperature=MODEL_CONFIG['temperature'],
+                    do_sample=True,
+                    pad_token_id=self.llm_tokenizer.eos_token_id,
+                    eos_token_id=self.llm_tokenizer.eos_token_id
+                )
+                
+                # 解码响应
+                generated_ids = [
+                    output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+                ]
+                
+                response = self.llm_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+                
+            elif "chatglm" in model_name:
                 # ChatGLM的chat接口
                 response, _ = self.llm_model.chat(
                     self.llm_tokenizer,
