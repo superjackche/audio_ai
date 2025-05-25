@@ -92,53 +92,114 @@ class AudioMonitorApp {
         } else {
             statusText.innerHTML = '<i class="fas fa-circle text-danger"></i> 系统初始化中';
         }
-    }
-
-    async startRecording() {
+    }    async startRecording() {
         try {
+            const startButton = document.getElementById('start-recording');
+            const stopButton = document.getElementById('stop-recording');
+            
+            // 禁用开始按钮，防止重复点击
+            startButton.disabled = true;
+            startButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>启动中...';
+            
             const response = await fetch('/api/start-recording', { method: 'POST' });
             const result = await response.json();
             
             if (response.ok) {
                 this.isRecording = true;
-                document.getElementById('start-recording').disabled = true;
-                document.getElementById('stop-recording').disabled = false;
+                startButton.style.display = 'none';
+                stopButton.disabled = false;
+                stopButton.style.display = 'inline-block';
                 document.getElementById('recording-indicator').style.display = 'flex';
                 
                 this.showSuccess('录音已开始');
+                
+                // 清空之前的结果
+                document.getElementById('realtime-result').innerHTML = '';
             } else {
                 this.showError(result.detail || '录音启动失败');
+                // 恢复按钮状态
+                startButton.disabled = false;
+                startButton.innerHTML = '<i class="fas fa-microphone me-2"></i>开始录音';
             }
         } catch (error) {
             console.error('开始录音失败:', error);
-            this.showError('录音启动失败');
+            this.showError('录音启动失败，请检查麦克风权限');
+            
+            // 恢复按钮状态
+            const startButton = document.getElementById('start-recording');
+            startButton.disabled = false;
+            startButton.innerHTML = '<i class="fas fa-microphone me-2"></i>开始录音';
         }
-    }
-
-    async stopRecording() {
+    }    async stopRecording() {
         try {
-            this.showLoadingInElement('realtime-result', '正在处理录音...');
+            const startButton = document.getElementById('start-recording');
+            const stopButton = document.getElementById('stop-recording');
+            
+            // 禁用停止按钮，防止重复点击
+            stopButton.disabled = true;
+            stopButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>处理中...';
+            
+            // 隐藏录音指示器，显示分析进度条
+            document.getElementById('recording-indicator').style.display = 'none';
+            this.showProgressBar('recording-analysis-progress', '正在处理录音数据...');
+            
+            // 模拟录音分析进度
+            const progressStages = [
+                { progress: 25, message: '正在保存录音文件...' },
+                { progress: 50, message: '正在进行语音识别...' },
+                { progress: 75, message: '正在分析文本内容...' },
+                { progress: 90, message: '正在生成分析报告...' }
+            ];
+
+            let stageIndex = 0;
+            const progressInterval = setInterval(() => {
+                if (stageIndex < progressStages.length) {
+                    const stage = progressStages[stageIndex];
+                    this.updateProgressBar('recording-analysis-progress', stage.progress, stage.message);
+                    stageIndex++;
+                }
+            }, 800);
             
             const response = await fetch('/api/stop-recording', { method: 'POST' });
             const result = await response.json();
             
+            // 清除进度模拟
+            clearInterval(progressInterval);
+            this.updateProgressBar('recording-analysis-progress', 100, '分析完成！');
+            
             this.isRecording = false;
-            document.getElementById('start-recording').disabled = false;
-            document.getElementById('stop-recording').disabled = true;
-            document.getElementById('recording-indicator').style.display = 'none';
+            startButton.style.display = 'inline-block';
+            startButton.disabled = false;
+            stopButton.style.display = 'none';
+            stopButton.innerHTML = '<i class="fas fa-stop me-2"></i>停止录音';
             
             if (response.ok) {
-                this.displayAnalysisResult(result, 'realtime-result');
-                this.showSuccess('录音分析完成');
-                this.loadStatistics(); // 更新统计信息
+                // 延迟一下让用户看到100%完成
+                setTimeout(() => {
+                    this.hideProgressBar('recording-analysis-progress');
+                    this.displayAnalysisResult(result, 'realtime-result');
+                    this.showSuccess('录音分析完成');
+                    this.loadStatistics();
+                }, 500);
             } else {
+                this.hideProgressBar('recording-analysis-progress');
                 this.showError(result.detail || '录音处理失败');
                 document.getElementById('realtime-result').innerHTML = '';
             }
         } catch (error) {
             console.error('停止录音失败:', error);
-            this.showError('录音处理失败');
+            this.hideProgressBar('recording-analysis-progress');
+            this.showError('录音处理失败，请重试');
             document.getElementById('realtime-result').innerHTML = '';
+            
+            // 重置状态
+            this.isRecording = false;
+            const startButton = document.getElementById('start-recording');
+            const stopButton = document.getElementById('stop-recording');
+            startButton.style.display = 'inline-block';
+            startButton.disabled = false;
+            stopButton.style.display = 'none';
+            stopButton.innerHTML = '<i class="fas fa-stop me-2"></i>停止录音';
         }
     }
 
@@ -188,9 +249,7 @@ class AudioMonitorApp {
         if (file) {
             this.processFile(file);
         }
-    }
-
-    async processFile(file) {
+    }    async processFile(file) {
         // 验证文件类型
         const allowedTypes = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/flac'];
         if (!allowedTypes.includes(file.type) && !file.name.match(/\.(wav|mp3|m4a|flac)$/i)) {
@@ -204,50 +263,157 @@ class AudioMonitorApp {
             return;
         }
         
-        try {
-            this.showUploadProgress(true);
-            this.showLoadingInElement('upload-result', '正在分析音频文件...');
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('audio-file');
+          try {
+            // 禁用上传区域，防止重复上传
+            this.setUploadAreaState(false);
+            
+            // 显示上传进度条
+            this.showProgressBar('upload-progress', '正在上传音频文件...');
+            this.updateProgressBar('upload-progress', 10, '正在上传音频文件...');
+            this.showLoadingInElement('upload-result', '正在上传音频文件...');
             
             const formData = new FormData();
             formData.append('file', file);
+            
+            // 模拟上传进度
+            const uploadProgressInterval = setInterval(() => {
+                const currentProgress = this.getCurrentProgress('upload-progress');
+                if (currentProgress < 30) {
+                    this.updateProgressBar('upload-progress', currentProgress + 5, '正在上传音频文件...');
+                }
+            }, 200);
             
             const response = await fetch('/api/upload-audio', {
                 method: 'POST',
                 body: formData
             });
             
+            clearInterval(uploadProgressInterval);
             const result = await response.json();
             
-            this.showUploadProgress(false);
-            
-            if (response.ok) {
-                this.displayAnalysisResult(result, 'upload-result');
-                this.showSuccess('文件分析完成');
-                this.loadStatistics();
+            if (response.ok && result.task_id) {
+                // 上传成功，开始分析
+                this.updateProgressBar('upload-progress', 35, '文件上传成功，开始分析...');
+                this.showLoadingInElement('upload-result', '文件上传成功，正在分析中...');
+                await this.pollTaskStatus(result.task_id, 'upload-result');
             } else {
-                this.showError(result.detail || '文件分析失败');
+                this.hideProgressBar('upload-progress');
+                this.showError(result.detail || '文件上传失败');
                 document.getElementById('upload-result').innerHTML = '';
             }
         } catch (error) {
             console.error('文件上传失败:', error);
-            this.showError('文件上传失败');
-            this.showUploadProgress(false);
+            this.hideProgressBar('upload-progress');
+            this.showError('网络错误，文件上传失败，请检查连接后重试');
             document.getElementById('upload-result').innerHTML = '';
+        } finally {
+            // 确保重新启用上传区域
+            this.setUploadAreaState(true);
         }
     }
 
-    async analyzeText() {
+    setUploadAreaState(enabled) {
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('audio-file');
+        
+        if (enabled) {
+            uploadArea.style.pointerEvents = 'auto';
+            uploadArea.style.opacity = '1';
+            uploadArea.classList.remove('uploading');
+            fileInput.disabled = false;
+            fileInput.value = ''; // 清空文件选择
+        } else {
+            uploadArea.style.pointerEvents = 'none';
+            uploadArea.style.opacity = '0.6';
+            uploadArea.classList.add('uploading');
+            fileInput.disabled = true;
+        }
+    }    async pollTaskStatus(taskId, resultContainerId) {
+        const maxAttempts = 60; // 最多轮询60次（5分钟）
+        let attempts = 0;
+        
+        const poll = async () => {
+            try {
+                const response = await fetch(`/api/task-status/${taskId}`);
+                const status = await response.json();
+                
+                if (response.ok) {
+                    // 更新进度信息
+                    if (status.progress >= 0) {
+                        const progressPercent = Math.round(status.progress);
+                        
+                        // 更新上传进度条
+                        this.updateProgressBar('upload-progress', progressPercent, status.message || '处理中...');
+                        
+                        // 也更新结果容器中的加载信息
+                        this.showLoadingInElement(resultContainerId, 
+                            `${status.message} (${progressPercent}%)`);
+                    }
+                    
+                    if (status.status === 'completed' && status.result) {
+                        // 任务完成，显示结果
+                        this.updateProgressBar('upload-progress', 100, '分析完成！');
+                        
+                        setTimeout(() => {
+                            this.hideProgressBar('upload-progress');
+                            this.displayAnalysisResult(status.result, resultContainerId);
+                            this.showSuccess('文件分析完成');
+                            this.loadStatistics();
+                        }, 500);
+                        return;
+                    } else if (status.status === 'failed') {
+                        // 任务失败
+                        this.hideProgressBar('upload-progress');
+                        this.showError(status.error || '分析失败');
+                        document.getElementById(resultContainerId).innerHTML = '';
+                        return;
+                    } else if (status.status === 'processing') {
+                        // 继续轮询
+                        attempts++;
+                        if (attempts < maxAttempts) {
+                            setTimeout(poll, 2000); // 2秒后再次检查
+                        } else {
+                            this.hideProgressBar('upload-progress');
+                            this.showError('分析超时，请重试');
+                            document.getElementById(resultContainerId).innerHTML = '';
+                        }
+                    }
+                } else {
+                    this.hideProgressBar('upload-progress');
+                    this.showError('获取任务状态失败');
+                    document.getElementById(resultContainerId).innerHTML = '';
+                }
+            } catch (error) {
+                console.error('轮询任务状态失败:', error);
+                this.hideProgressBar('upload-progress');
+                this.showError('获取分析状态失败');
+                document.getElementById(resultContainerId).innerHTML = '';
+            }
+        };
+        
+        // 开始轮询
+        poll();
+    }async analyzeText() {
         const textInput = document.getElementById('text-input');
+        const analyzeButton = document.getElementById('analyze-text');
         const text = textInput.value.trim();
         
         if (!text) {
             this.showError('请输入要分析的文本内容');
+            textInput.focus();
             return;
         }
         
+        // 立即提供视觉反馈
+        this.setAnalyzeTextState(false);
+        this.showProgressBar('text-analysis-progress', '准备开始分析...');
+        
+        // 启动模拟进度条
+        const progressInterval = this.simulateTextAnalysisProgress();
+        
         try {
-            this.showLoadingInElement('text-result', '正在分析文本...');
-            
             const response = await fetch('/api/analyze-text', {
                 method: 'POST',
                 headers: {
@@ -256,21 +422,125 @@ class AudioMonitorApp {
                 body: JSON.stringify({ text: text })
             });
             
+            // 清除模拟进度条
+            clearInterval(progressInterval);
+            this.updateProgressBar('text-analysis-progress', 100, '分析完成！');
+            
             const result = await response.json();
             
             if (response.ok) {
-                this.displayAnalysisResult(result, 'text-result');
-                this.showSuccess('文本分析完成');
-                this.loadStatistics();
+                // 延迟一下让用户看到100%完成
+                setTimeout(() => {
+                    this.hideProgressBar('text-analysis-progress');
+                    this.displayAnalysisResult(result, 'text-result');
+                    this.showSuccess('文本分析完成');
+                    this.loadStatistics();
+                }, 500);
             } else {
+                this.hideProgressBar('text-analysis-progress');
                 this.showError(result.detail || '文本分析失败');
                 document.getElementById('text-result').innerHTML = '';
             }
         } catch (error) {
             console.error('文本分析失败:', error);
-            this.showError('文本分析失败');
+            clearInterval(progressInterval);
+            this.hideProgressBar('text-analysis-progress');
+            this.showError('网络错误，文本分析失败，请检查连接后重试');
             document.getElementById('text-result').innerHTML = '';
+        } finally {
+            // 恢复按钮和输入框状态
+            this.setAnalyzeTextState(true);
         }
+    }
+
+    setAnalyzeTextState(enabled) {
+        const textInput = document.getElementById('text-input');
+        const analyzeButton = document.getElementById('analyze-text');
+        
+        if (enabled) {
+            analyzeButton.disabled = false;
+            analyzeButton.innerHTML = '<i class="fas fa-search me-2"></i>分析文本';
+            textInput.disabled = false;
+            textInput.classList.remove('analyzing');
+        } else {
+            analyzeButton.disabled = true;
+            analyzeButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>分析中...';
+            textInput.disabled = true;
+            textInput.classList.add('analyzing');
+        }
+    }
+
+    showLoadingInElement(elementId, message) {
+        const element = document.getElementById(elementId);
+        element.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center p-4">
+                <div class="spinner-border text-primary me-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="text-muted">${message}</div>
+            </div>
+        `;
+    }
+
+    showUploadProgress(show) {
+        const progressElement = document.getElementById('upload-progress');
+        if (progressElement) {
+            progressElement.style.display = show ? 'block' : 'none';
+        }
+    }
+
+    showSuccess(message) {
+        this.showToast(message, 'success');
+    }
+
+    showError(message) {
+        this.showToast(message, 'error');
+        console.error('Error:', message);
+    }
+
+    showToast(message, type = 'info') {
+        // 创建toast容器（如果不存在）
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '1050';
+            document.body.appendChild(toastContainer);
+        }
+
+        // 创建toast
+        const toastId = 'toast_' + Date.now();
+        const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-info';
+        const iconClass = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+
+        const toastHtml = `
+            <div id="${toastId}" class="toast ${bgClass} text-white" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header ${bgClass} text-white border-0">
+                    <i class="fas ${iconClass} me-2"></i>
+                    <strong class="me-auto">${type === 'success' ? '成功' : type === 'error' ? '错误' : '信息'}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+        // 显示toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: type === 'error' ? 5000 : 3000
+        });
+        toast.show();
+
+        // 清理：在toast隐藏后移除DOM元素
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
     }
 
     displayAnalysisResult(result, containerId) {
@@ -330,11 +600,15 @@ class AudioMonitorApp {
         
         // 保存结果到历史记录
         this.analysisHistory.unshift(result);
-    }
-
-    showDetailedResult(analysisId) {
-        const result = this.analysisHistory.find(r => r.analysis_id === analysisId);
-        if (!result) return;
+    }    showDetailedResult(analysisId) {
+        // 首先从历史记录中查找
+        let result = this.analysisHistory.find(r => r.analysis_id === analysisId);
+        
+        // 如果在内存中没找到，尝试从服务器获取
+        if (!result) {
+            this.fetchDetailedResult(analysisId);
+            return;
+        }
         
         const modalBody = document.getElementById('modal-body-content');
         modalBody.innerHTML = this.generateDetailedResultHTML(result);
@@ -343,8 +617,30 @@ class AudioMonitorApp {
         modal.show();
     }
 
-    generateDetailedResultHTML(result) {
-        const risk = result.risk_analysis;
+    async fetchDetailedResult(analysisId) {
+        try {
+            // 从服务器获取历史记录
+            const response = await fetch('/api/analysis-history');
+            const data = await response.json();
+            
+            const result = data.results.find(r => r.analysis_id === analysisId);
+            if (result) {
+                const modalBody = document.getElementById('modal-body-content');
+                modalBody.innerHTML = this.generateDetailedResultHTML(result);
+                
+                const modal = new bootstrap.Modal(document.getElementById('result-modal'));
+                modal.show();
+            } else {
+                this.showError('未找到对应的分析记录');
+            }
+        } catch (error) {
+            console.error('获取详细分析结果失败:', error);
+            this.showError('获取详细分析结果失败');
+        }
+    }    generateDetailedResultHTML(result) {
+        const risk = result.risk_analysis || {};
+        const riskLevel = risk.risk_level || '未知';
+        const riskScore = risk.risk_score || risk.total_score || 0;
         
         let html = `
             <div class="detail-section">
@@ -353,72 +649,83 @@ class AudioMonitorApp {
                     <div class="col-md-6">
                         <p><strong>分析ID:</strong> ${result.analysis_id}</p>
                         <p><strong>分析时间:</strong> ${new Date(result.timestamp).toLocaleString('zh-CN')}</p>
-                        <p><strong>风险等级:</strong> <span class="risk-badge ${result.summary.risk_level}">${result.summary.risk_level}</span></p>
+                        <p><strong>风险等级:</strong> <span class="risk-badge ${riskLevel}">${riskLevel}</span></p>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>风险分数:</strong> ${result.summary.risk_score}</p>
-                        <p><strong>文本长度:</strong> ${result.summary.text_length || '未知'} 字符</p>
-                        ${result.summary.audio_duration ? `<p><strong>音频时长:</strong> ${result.summary.audio_duration.toFixed(2)} 秒</p>` : ''}
+                        <p><strong>风险分数:</strong> ${riskScore}</p>
+                        <p><strong>文本长度:</strong> ${result.transcription ? result.transcription.text.length : (result.input_text ? result.input_text.length : 0)} 字符</p>
+                        ${result.original_filename ? `<p><strong>原始文件:</strong> ${result.original_filename}</p>` : ''}
                     </div>
                 </div>
             </div>
         `;
         
-        // 转录文本
-        if (result.transcription) {
+        // 转录文本或输入文本
+        const textContent = result.transcription ? result.transcription.text : result.input_text;
+        if (textContent) {
             html += `
                 <div class="detail-section">
-                    <h6><i class="fas fa-microphone me-2"></i>语音转录</h6>
+                    <h6><i class="fas fa-${result.transcription ? 'microphone' : 'keyboard'} me-2"></i>${result.transcription ? '语音转录' : '输入文本'}</h6>
                     <div class="p-3 bg-light rounded">
-                        <p class="mb-0">${result.transcription.text || result.input_text || '无文本内容'}</p>
+                        <p class="mb-0">${this.truncateText(textContent, 500)}</p>
+                        ${textContent.length > 500 ? '<small class="text-muted">（内容已截断，显示前500字符）</small>' : ''}
                     </div>
                 </div>
             `;
         }
         
-        // 关键词分析
-        if (risk.keyword_analysis.found_keywords) {
+        // 风险分析详情
+        if (risk.key_issues && risk.key_issues.length > 0) {
             html += `
                 <div class="detail-section">
-                    <h6><i class="fas fa-key me-2"></i>关键词分析</h6>
-                    <p><strong>分数:</strong> ${risk.keyword_analysis.score}</p>
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>关键问题</h6>
+                    <ul>
+                        ${risk.key_issues.map(issue => `<li>${issue}</li>`).join('')}
+                    </ul>
+                </div>
             `;
-            
-            Object.entries(risk.keyword_analysis.found_keywords).forEach(([level, keywords]) => {
-                html += `
-                    <h7 class="text-muted">${level}关键词:</h7>
-                    <div class="mb-3">
-                `;
-                keywords.forEach(kw => {
-                    html += `<span class="keyword-highlight me-2 mb-1 d-inline-block">${kw.keyword} (${kw.count})</span>`;
-                });
-                html += `</div>`;
-            });
-            
-            html += `</div>`;
         }
-        
-        // 上下文分析
-        html += `
-            <div class="detail-section">
-                <h6><i class="fas fa-brain me-2"></i>语义分析</h6>
-                <p><strong>分数:</strong> ${risk.context_analysis.score}</p>
-                <p><strong>关键短语:</strong> ${risk.context_analysis.key_phrases.join(', ')}</p>
-                <p><strong>语义密度:</strong> ${(risk.context_analysis.semantic_density * 100).toFixed(2)}%</p>
-            </div>
-        `;
         
         // 改进建议
-        html += `
-            <div class="recommendations">
-                <h6><i class="fas fa-lightbulb me-2"></i>改进建议</h6>
-                <ul>
-                    ${risk.recommendations.map(rec => `<li>${rec}</li>`).join('')}
-                </ul>
-            </div>
-        `;
+        if (risk.suggestions && risk.suggestions.length > 0) {
+            html += `
+                <div class="detail-section">
+                    <h6><i class="fas fa-lightbulb me-2"></i>改进建议</h6>
+                    <ul>
+                        ${risk.suggestions.map(suggestion => `<li>${suggestion}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        // 详细分析
+        if (risk.detailed_analysis) {
+            html += `
+                <div class="detail-section">
+                    <h6><i class="fas fa-brain me-2"></i>详细分析</h6>
+                    <div class="p-3 bg-light rounded">
+                        <p class="mb-0">${risk.detailed_analysis}</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 如果是语音转录，显示检测的语言
+        if (result.transcription && result.transcription.language) {
+            html += `
+                <div class="detail-section">
+                    <h6><i class="fas fa-language me-2"></i>语言信息</h6>
+                    <p><strong>检测语言:</strong> ${result.transcription.language}</p>
+                </div>
+            `;
+        }
         
         return html;
+    }
+
+    truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
     }
 
     async loadHistory() {
@@ -461,18 +768,18 @@ class AudioMonitorApp {
                     </thead>
                     <tbody>
         `;
-        
-        results.forEach(result => {
+          results.forEach(result => {
             const type = result.transcription ? '语音' : '文本';
             const time = new Date(result.timestamp).toLocaleString('zh-CN');
+            const riskAnalysis = result.risk_analysis || {};
             
             html += `
                 <tr>
                     <td>${time}</td>
                     <td><i class="fas fa-${result.transcription ? 'microphone' : 'keyboard'} me-1"></i>${type}</td>
-                    <td><span class="risk-badge ${result.summary.risk_level}">${result.summary.risk_level}</span></td>
-                    <td>${result.summary.risk_score}</td>
-                    <td>${result.summary.text_length || 0}</td>
+                    <td><span class="risk-badge ${riskAnalysis.risk_level || '未知'}">${riskAnalysis.risk_level || '未知'}</span></td>
+                    <td>${riskAnalysis.risk_score || riskAnalysis.total_score || 0}</td>
+                    <td>${result.transcription ? result.transcription.text.length : (result.input_text ? result.input_text.length : 0)}</td>
                     <td>
                         <button class="btn btn-outline-primary btn-sm" onclick="app.showDetailedResult('${result.analysis_id}')">
                             <i class="fas fa-eye"></i>
@@ -548,13 +855,88 @@ class AudioMonitorApp {
         `;
         
         document.body.appendChild(alertDiv);
-        
-        // 自动移除
+          // 自动移除
         setTimeout(() => {
             if (alertDiv.parentNode) {
                 alertDiv.parentNode.removeChild(alertDiv);
             }
         }, 5000);
+    }
+
+    // 进度条控制函数
+    updateProgressBar(containerId, percentage, message = '') {
+        const container = document.getElementById(containerId);
+        if (container) {
+            const progressBar = container.querySelector('.progress-bar');
+            const progressText = container.querySelector('small');
+            
+            if (progressBar) {
+                progressBar.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+                progressBar.setAttribute('aria-valuenow', percentage);
+            }
+            
+            if (progressText && message) {
+                progressText.textContent = message;
+            }
+        }
+    }
+
+    showProgressBar(containerId, message = '') {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.style.display = 'block';
+            this.updateProgressBar(containerId, 0, message);
+        }
+    }    hideProgressBar(containerId) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.style.display = 'none';
+        }
+    }
+
+    getCurrentProgress(containerId) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            const progressBar = container.querySelector('.progress-bar');
+            if (progressBar) {
+                return parseInt(progressBar.getAttribute('aria-valuenow') || '0');
+            }
+        }
+        return 0;
+    }
+
+    showUploadProgress(show) {
+        // 兼容旧代码，实际使用showProgressBar/hideProgressBar
+        if (show) {
+            this.showProgressBar('upload-progress', '正在准备上传...');
+        } else {
+            this.hideProgressBar('upload-progress');
+        }
+    }
+
+    // 模拟文本分析进度（用于提供用户反馈）
+    simulateTextAnalysisProgress() {
+        let progress = 0;
+        const stages = [
+            { progress: 20, message: '正在加载AI模型...' },
+            { progress: 40, message: '开始文本分析...' },
+            { progress: 60, message: 'AI正在深度思考...' },
+            { progress: 80, message: '生成分析结果...' },
+            { progress: 95, message: '整理输出格式...' }
+        ];
+
+        let currentStage = 0;
+        const interval = setInterval(() => {
+            if (currentStage < stages.length) {
+                const stage = stages[currentStage];
+                this.updateProgressBar('text-analysis-progress', stage.progress, stage.message);
+                currentStage++;
+            } else {
+                clearInterval(interval);
+            }
+        }, 800); // 每0.8秒更新一次
+
+        return interval;
     }
 }
 

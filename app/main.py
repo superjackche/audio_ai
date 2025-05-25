@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 from typing import Optional # 添加 Optional
+import tempfile # Added for temporary file handling
 
 # 导入自定义模块
 from models.model_manager import ModelManager
@@ -96,7 +97,7 @@ async def get_system_status():
     }
     return JSONResponse(status)
 
-async def analyze_audio_file(file_path: str, progress_callback: Optional[callable] = None) -> dict:
+async def analyze_audio_file(processing_file_path: str, original_filename: str, progress_callback: Optional[callable] = None) -> dict:
     """分析音频文件"""
     logger = logging.getLogger(__name__) # 获取当前模块的logger实例
     try:
@@ -104,7 +105,7 @@ async def analyze_audio_file(file_path: str, progress_callback: Optional[callabl
         if progress_callback:
             progress_callback(0.0, "开始语音转文本...")
 
-        transcription_result = model_manager.transcribe_audio(file_path, progress_callback=lambda p, m: progress_callback(p * 0.7, m) if progress_callback else None)
+        transcription_result = model_manager.transcribe_audio(processing_file_path, progress_callback=lambda p, m: progress_callback(p * 0.7, m) if progress_callback else None)
         text = transcription_result["text"]
         detected_language = transcription_result.get("language", "zh") # 获取检测到的语言
         
@@ -155,7 +156,7 @@ async def analyze_audio_file(file_path: str, progress_callback: Optional[callabl
             progress_callback(90.0, "LLM分析阶段完成, 开始提取音频特征...")
             
         # 4. 提取音频特征
-        audio_features = AudioProcessor.extract_audio_features(file_path)
+        audio_features = AudioProcessor.extract_audio_features(processing_file_path)
         if progress_callback:
             progress_callback(95.0, "音频特征提取完成, 生成结果...") 
         
@@ -165,6 +166,7 @@ async def analyze_audio_file(file_path: str, progress_callback: Optional[callabl
 
         result = {
             "analysis_id": f"analysis_{int(datetime.now().timestamp())}",
+            "original_filename": original_filename, # Added original filename
             "timestamp": datetime.now().isoformat(),
             "transcription": transcription_result,
             "risk_analysis": risk_analysis, 
@@ -204,18 +206,18 @@ async def upload_audio(file: UploadFile = File(...), background_tasks: Backgroun
     if not model_manager or not model_manager.whisper_model:
         raise HTTPException(status_code=503, detail="语音识别模型未加载")
     
+    processing_file_path = None # Initialize path variable
     try:
         # 验证文件类型
         if not file.filename.lower().endswith(('.wav', '.mp3', '.m4a', '.flac')):
             raise HTTPException(status_code=400, detail="不支持的音频格式")
         
-        # 保存上传的文件
         file_content = await file.read()
-        file_path = FileManager.save_uploaded_file(
-            file_content, 
-            file.filename, 
-            DATA_PATHS["upload_dir"]
-        )
+        
+        # 使用tempfile创建一个临时文件来处理，避免路径问题
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp_file:
+            tmp_file.write(file_content)
+            processing_file_path = tmp_file.name
         
         # 使用后台任务进行分析，并提供一个任务ID用于查询进度
         task_id = f"task_{int(datetime.now().timestamp())}"
@@ -225,7 +227,7 @@ async def upload_audio(file: UploadFile = File(...), background_tasks: Backgroun
         if not hasattr(app.state, 'tasks_status'):
             app.state.tasks_status = {}
         
-        app.state.tasks_status[task_id] = {"status": "processing", "progress": 0, "message": "任务已提交"}
+        app.state.tasks_status[task_id] = {"status": "processing", "progress": 0, "message": "任务已提交", "original_filename": file.filename}
 
         def progress_update_for_task(task_id: str, progress: float, message: str):
             if task_id in app.state.tasks_status:
@@ -235,9 +237,9 @@ async def upload_audio(file: UploadFile = File(...), background_tasks: Backgroun
                      app.state.tasks_status[task_id]["status"] = "completed" if progress == 100.0 else "failed"
 
 
-        async def analyze_and_cleanup(path: str, current_task_id: str):
+        async def analyze_and_cleanup(temp_path: str, original_filename: str, current_task_id: str):
             try:
-                result = await analyze_audio_file(path, progress_callback=lambda p, m: progress_update_for_task(current_task_id, p, m))
+                result = await analyze_audio_file(temp_path, original_filename, progress_callback=lambda p, m: progress_update_for_task(current_task_id, p, m))
                 app.state.tasks_status[current_task_id]["result"] = result
                 app.state.tasks_status[current_task_id]["status"] = "completed"
                 app.state.tasks_status[current_task_id]["progress"] = 100.0
@@ -246,15 +248,19 @@ async def upload_audio(file: UploadFile = File(...), background_tasks: Backgroun
                 app.state.tasks_status[current_task_id]["error"] = str(e)
                 app.state.tasks_status[current_task_id]["progress"] = -1.0
             finally:
-                if os.path.exists(path):
-                    os.remove(path)
+                if temp_path and os.path.exists(temp_path): # Ensure temp_path is not None
+                    os.remove(temp_path)
         
-        background_tasks.add_task(analyze_and_cleanup, file_path, task_id)
+        # Pass processing_file_path (temp_path) and original filename to background task
+        background_tasks.add_task(analyze_and_cleanup, processing_file_path, file.filename, task_id)
         
         return JSONResponse({"message": "音频处理已开始", "task_id": task_id, "status_url": f"/api/task-status/{task_id}"})
         
     except Exception as e:
         logging.error(f"音频上传处理启动失败: {e}")
+        # Cleanup temp file if it was created and an error occurred before starting background task
+        if processing_file_path and os.path.exists(processing_file_path):
+            os.remove(processing_file_path)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/task-status/{task_id}")
@@ -306,11 +312,32 @@ async def stop_recording():
 async def get_analysis_history(limit: int = 50):
     """获取分析历史记录"""
     try:
-        # 返回最近的分析记录
-        recent_results = analysis_results[-limit:] if analysis_results else []
+        # 获取内存中的结果和文件系统中的历史记录
+        all_results = []
+        
+        # 加载文件系统中的历史记录
+        output_dir = DATA_PATHS["output_dir"]
+        if output_dir.exists():
+            for json_file in sorted(output_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+                try:
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        result_data = json.load(f)
+                        all_results.append(result_data)
+                except Exception as e:
+                    logging.warning(f"读取历史记录文件失败 {json_file}: {e}")
+        
+        # 添加内存中的结果（避免重复）
+        existing_ids = {r.get("analysis_id") for r in all_results}
+        for result in analysis_results:
+            if result.get("analysis_id") not in existing_ids:
+                all_results.append(result)
+        
+        # 按时间戳排序，取最近的记录
+        all_results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        recent_results = all_results[:limit]
         
         return JSONResponse({
-            "total_count": len(analysis_results),
+            "total_count": len(all_results),
             "results": recent_results
         })
     except Exception as e:
@@ -330,7 +357,7 @@ async def get_statistics():
         
         # 计算统计信息
         risk_levels = [r["risk_analysis"]["risk_level"] for r in analysis_results]
-        risk_scores = [r["risk_analysis"]["total_score"] for r in analysis_results]
+        risk_scores = [r["risk_analysis"].get("total_score", r["risk_analysis"].get("risk_score", 0)) for r in analysis_results]
         
         from collections import Counter
         risk_distribution = dict(Counter(risk_levels))
