@@ -1,0 +1,308 @@
+/* 自定义样式 */
+:root {
+    --primary-color: #0d6efd;
+    --success-color: #198754;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --info-color: #0dcaf0;
+}
+
+body {
+    background-color: #f8f9fa;
+    font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+/* 状态指示器 */
+.status-indicator {
+    padding: 20px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.status-indicator.status-online {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    color: var(--success-color);
+}
+
+.status-indicator.status-offline {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+    color: var(--danger-color);
+}
+
+.status-indicator.status-loading {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    color: var(--warning-color);
+}
+
+/* 录音指示器 */
+.recording-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+.pulse-dot {
+    width: 12px;
+    height: 12px;
+    background-color: var(--danger-color);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+    }
+    
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+    }
+    
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+    }
+}
+
+/* 文件上传区域 */
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: var(--primary-color);
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.upload-area.dragover {
+    border-color: var(--primary-color);
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+/* 风险等级徽章 */
+.risk-badge {
+    font-size: 0.9em;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+.risk-badge.无风险 {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.risk-badge.低风险 {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.risk-badge.中风险 {
+    background-color: var(--warning-color);
+    color: #212529;
+}
+
+.risk-badge.高风险 {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* 分析结果卡片 */
+.analysis-card {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    transition: transform 0.2s ease;
+}
+
+.analysis-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* 分数显示 */
+.score-display {
+    text-align: center;
+    padding: 20px;
+}
+
+.score-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+    font-size: 1.5em;
+    font-weight: bold;
+    color: white;
+}
+
+.score-circle.low {
+    background: linear-gradient(135deg, var(--success-color), #20c997);
+}
+
+.score-circle.medium {
+    background: linear-gradient(135deg, var(--warning-color), #fd7e14);
+}
+
+.score-circle.high {
+    background: linear-gradient(135deg, var(--danger-color), #d63384);
+}
+
+/* 关键词高亮 */
+.keyword-highlight {
+    background-color: #fff3cd;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+
+.keyword-highlight.high-risk {
+    background-color: #f8d7da;
+    color: var(--danger-color);
+}
+
+.keyword-highlight.medium-risk {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.keyword-highlight.low-risk {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* 历史记录表格 */
+.history-table {
+    font-size: 0.9em;
+}
+
+.history-table td {
+    vertical-align: middle;
+}
+
+/* 进度条动画 */
+.progress-bar-animated {
+    animation: progress-bar-stripes 1s linear infinite;
+}
+
+/* 加载动画 */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    .recording-controls .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .score-circle {
+        width: 60px;
+        height: 60px;
+        font-size: 1.2em;
+    }
+}
+
+/* 图表容器 */
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin: 20px 0;
+}
+
+/* 详细分析展开区域 */
+.detail-section {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.detail-section h6 {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+}
+
+/* 建议列表 */
+.recommendations {
+    background-color: #e7f3ff;
+    border-left: 4px solid var(--info-color);
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.recommendations ul {
+    margin-bottom: 0;
+    padding-left: 20px;
+}
+
+.recommendations li {
+    margin-bottom: 5px;
+}
+
+/* 工具提示 */
+.tooltip-inner {
+    background-color: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+}
+
+/* 音频波形模拟 */
+.audio-waveform {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    gap: 2px;
+}
+
+.wave-bar {
+    width: 3px;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+    animation: wave 1.5s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0s; height: 20px; }
+.wave-bar:nth-child(2) { animation-delay: 0.1s; height: 30px; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; height: 40px; }
+.wave-bar:nth-child(4) { animation-delay: 0.3s; height: 25px; }
+.wave-bar:nth-child(5) { animation-delay: 0.4s; height: 35px; }
+
+@keyframes wave {
+    0%, 100% { transform: scaleY(0.5); }
+    50% { transform: scaleY(1); }
+}
