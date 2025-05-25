@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 import logging
+from typing import Optional # 添加 Optional
 
 # 导入自定义模块
 from models.model_manager import ModelManager
@@ -38,8 +39,7 @@ analysis_results = []
 async def startup_event():
     """应用启动时初始化"""
     global model_manager, risk_analyzer, audio_recorder
-    
-    # 设置日志
+      # 设置日志
     Logger.setup_logging(DATA_PATHS["logs_dir"])
     logger = logging.getLogger(__name__)
     
@@ -49,7 +49,14 @@ async def startup_event():
         # 初始化组件
         model_manager = ModelManager()
         risk_analyzer = PoliticalRiskAnalyzer()
-        audio_recorder = AudioRecorder()
+        
+        # 尝试初始化音频录制器（可选）
+        try:
+            audio_recorder = AudioRecorder()
+            logger.info("音频录制功能已启用")
+        except ImportError as e:
+            logger.warning(f"音频录制功能不可用: {e}")
+            audio_recorder = None
         
         # 在后台加载AI模型
         asyncio.create_task(load_models_background())
@@ -89,8 +96,110 @@ async def get_system_status():
     }
     return JSONResponse(status)
 
+async def analyze_audio_file(file_path: str, progress_callback: Optional[callable] = None) -> dict:
+    """分析音频文件"""
+    logger = logging.getLogger(__name__) # 获取当前模块的logger实例
+    try:
+        # 1. 语音转文本
+        if progress_callback:
+            progress_callback(0.0, "开始语音转文本...")
+
+        transcription_result = model_manager.transcribe_audio(file_path, progress_callback=lambda p, m: progress_callback(p * 0.7, m) if progress_callback else None)
+        text = transcription_result["text"]
+        detected_language = transcription_result.get("language", "zh") # 获取检测到的语言
+        
+        if progress_callback:
+            progress_callback(70.0, f"语音转文本完成 (语言: {detected_language}), 开始风险分析...")
+
+        if not text.strip():
+            if progress_callback:
+                progress_callback(100.0, "未检测到语音内容")
+            return {
+                "error": "未检测到语音内容",
+                "transcription": transcription_result
+            }
+        
+        # 2. 政治风险分析 (基于检测到的语言)
+        risk_analysis_completed_by_llm = False
+        if detected_language.lower().startswith("zh"):
+            # 对于中文，首先使用基于规则的分析器
+            risk_analysis = risk_analyzer.analyze_text(text) 
+        else:
+            # 对于非中文，直接使用LLM进行分析
+            logger.info(f"检测到非中文 ({detected_language})，将使用LLM进行风险分析。")
+            risk_analysis = model_manager.analyze_text_risk(text, language=detected_language)
+            risk_analysis_completed_by_llm = True # 标记风险分析已由LLM完成
+
+        if progress_callback:
+            progress_callback(80.0, "初步风险分析完成, 进行LLM补充分析(如果适用)...") 
+        
+        # 3. AI模型深度分析/补充分析
+        llm_analysis = {}
+        if detected_language.lower().startswith("zh") and model_manager.llm_model:
+            # 如果是中文，并且规则分析器已运行，现在用LLM做补充/深度分析
+            logger.info("中文文本，使用LLM进行补充风险分析。")
+            try:
+                llm_analysis = model_manager.analyze_text_risk(text, language=detected_language)
+            except Exception as e:
+                logging.warning(f"AI模型补充分析失败: {e}")
+                llm_analysis = {"error": "AI模型补充分析不可用"}
+        elif risk_analysis_completed_by_llm:
+            # 如果风险分析已由LLM完成（例如非中文文本），则llm_analysis可以就是risk_analysis本身
+            llm_analysis = risk_analysis
+        else:
+            # 其他情况（例如LLM未加载或非中文但LLM分析失败了），llm_analysis为空或错误
+            llm_analysis = {"error": "LLM分析未执行或失败"}
+
+
+        if progress_callback:
+            progress_callback(90.0, "LLM分析阶段完成, 开始提取音频特征...")
+            
+        # 4. 提取音频特征
+        audio_features = AudioProcessor.extract_audio_features(file_path)
+        if progress_callback:
+            progress_callback(95.0, "音频特征提取完成, 生成结果...") 
+        
+        # 5. 综合结果
+        summary_risk_level = risk_analysis.get("risk_level", "未知")
+        summary_risk_score = risk_analysis.get("total_score", risk_analysis.get("risk_score", 0))
+
+        result = {
+            "analysis_id": f"analysis_{int(datetime.now().timestamp())}",
+            "timestamp": datetime.now().isoformat(),
+            "transcription": transcription_result,
+            "risk_analysis": risk_analysis, 
+            "llm_analysis": llm_analysis, 
+            "audio_features": audio_features,
+            "summary": {
+                "text_length": len(text),
+                "risk_level": summary_risk_level,
+                "risk_score": summary_risk_score,
+                "audio_duration": audio_features.get("duration", 0),
+                "detected_language": detected_language
+            }
+        }
+        
+        # 保存分析结果
+        analysis_results.append(result)
+        
+        # 保存到文件
+        output_file = DATA_PATHS["output_dir"] / f"{result['analysis_id']}.json"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+        
+        if progress_callback:
+            progress_callback(100.0, "分析完成")
+        
+        return result
+        
+    except Exception as e:
+        logging.error(f"音频分析失败: {e}")
+        if progress_callback:
+            progress_callback(-1.0, f"分析失败: {e}") # 表示错误
+        raise
+
 @app.post("/api/upload-audio")
-async def upload_audio(file: UploadFile = File(...)):
+async def upload_audio(file: UploadFile = File(...), background_tasks: BackgroundTasks = None): # 添加 BackgroundTasks
     """上传音频文件进行分析"""
     if not model_manager or not model_manager.whisper_model:
         raise HTTPException(status_code=503, detail="语音识别模型未加载")
@@ -108,17 +217,52 @@ async def upload_audio(file: UploadFile = File(...)):
             DATA_PATHS["upload_dir"]
         )
         
-        # 分析音频
-        result = await analyze_audio_file(file_path)
+        # 使用后台任务进行分析，并提供一个任务ID用于查询进度
+        task_id = f"task_{int(datetime.now().timestamp())}"
         
-        # 清理临时文件
-        os.remove(file_path)
+        # 这里需要一个地方存储任务状态和进度
+        # 例如，一个全局字典
+        if not hasattr(app.state, 'tasks_status'):
+            app.state.tasks_status = {}
         
-        return JSONResponse(result)
+        app.state.tasks_status[task_id] = {"status": "processing", "progress": 0, "message": "任务已提交"}
+
+        def progress_update_for_task(task_id: str, progress: float, message: str):
+            if task_id in app.state.tasks_status:
+                app.state.tasks_status[task_id]["progress"] = progress
+                app.state.tasks_status[task_id]["message"] = message
+                if progress == 100.0 or progress == -1.0: # 完成或错误
+                     app.state.tasks_status[task_id]["status"] = "completed" if progress == 100.0 else "failed"
+
+
+        async def analyze_and_cleanup(path: str, current_task_id: str):
+            try:
+                result = await analyze_audio_file(path, progress_callback=lambda p, m: progress_update_for_task(current_task_id, p, m))
+                app.state.tasks_status[current_task_id]["result"] = result
+                app.state.tasks_status[current_task_id]["status"] = "completed"
+                app.state.tasks_status[current_task_id]["progress"] = 100.0
+            except Exception as e:
+                app.state.tasks_status[current_task_id]["status"] = "failed"
+                app.state.tasks_status[current_task_id]["error"] = str(e)
+                app.state.tasks_status[current_task_id]["progress"] = -1.0
+            finally:
+                if os.path.exists(path):
+                    os.remove(path)
+        
+        background_tasks.add_task(analyze_and_cleanup, file_path, task_id)
+        
+        return JSONResponse({"message": "音频处理已开始", "task_id": task_id, "status_url": f"/api/task-status/{task_id}"})
         
     except Exception as e:
-        logging.error(f"音频上传分析失败: {e}")
+        logging.error(f"音频上传处理启动失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/task-status/{task_id}")
+async def get_task_status(task_id: str):
+    """获取后台任务的状态"""
+    if not hasattr(app.state, 'tasks_status') or task_id not in app.state.tasks_status:
+        raise HTTPException(status_code=404, detail="任务未找到")
+    return JSONResponse(app.state.tasks_status[task_id])
 
 @app.post("/api/start-recording")
 async def start_recording():
@@ -157,64 +301,6 @@ async def stop_recording():
     except Exception as e:
         logging.error(f"停止录音失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-async def analyze_audio_file(file_path: str) -> dict:
-    """分析音频文件"""
-    try:
-        # 1. 语音转文本
-        transcription = model_manager.transcribe_audio(file_path)
-        text = transcription["text"]
-        
-        if not text.strip():
-            return {
-                "error": "未检测到语音内容",
-                "transcription": transcription
-            }
-        
-        # 2. 政治风险分析
-        risk_analysis = risk_analyzer.analyze_text(text)
-        
-        # 3. AI模型深度分析（如果可用）
-        llm_analysis = {}
-        if model_manager.llm_model:
-            try:
-                llm_analysis = model_manager.analyze_text_risk(text)
-            except Exception as e:
-                logging.warning(f"AI模型分析失败: {e}")
-                llm_analysis = {"error": "AI模型分析不可用"}
-        
-        # 4. 提取音频特征
-        audio_features = AudioProcessor.extract_audio_features(file_path)
-        
-        # 5. 综合结果
-        result = {
-            "analysis_id": f"analysis_{int(datetime.now().timestamp())}",
-            "timestamp": datetime.now().isoformat(),
-            "transcription": transcription,
-            "risk_analysis": risk_analysis,
-            "llm_analysis": llm_analysis,
-            "audio_features": audio_features,
-            "summary": {
-                "text_length": len(text),
-                "risk_level": risk_analysis["risk_level"],
-                "risk_score": risk_analysis["total_score"],
-                "audio_duration": audio_features.get("duration", 0)
-            }
-        }
-        
-        # 保存分析结果
-        analysis_results.append(result)
-        
-        # 保存到文件
-        output_file = DATA_PATHS["output_dir"] / f"{result['analysis_id']}.json"
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
-        
-        return result
-        
-    except Exception as e:
-        logging.error(f"音频分析失败: {e}")
-        raise
 
 @app.get("/api/analysis-history")
 async def get_analysis_history(limit: int = 50):

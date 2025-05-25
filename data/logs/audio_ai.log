@@ -1,0 +1,286 @@
+2025-05-25 16:21:05,897 - __main__ - INFO - ==================================================
+2025-05-25 16:21:05,898 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 16:21:05,898 - __main__ - INFO - ==================================================
+2025-05-25 16:21:08,919 - __main__ - INFO - PyTorch版本: 2.7.0+cpu
+2025-05-25 16:21:08,919 - __main__ - WARNING - CUDA不可用，将使用CPU运行
+2025-05-25 16:21:10,090 - __main__ - INFO - Transformers版本: 4.52.3
+2025-05-25 16:21:10,797 - __main__ - INFO - Whisper语音识别可用
+2025-05-25 16:21:11,370 - __main__ - INFO - FastAPI版本: 0.115.12
+2025-05-25 16:21:11,370 - __main__ - INFO - 训练数据已存在
+2025-05-25 16:21:11,370 - __main__ - INFO - 正在启动Web服务...
+2025-05-25 16:21:11,371 - __main__ - INFO - 访问地址: http://localhost:8000
+2025-05-25 16:21:15,343 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 16:21:15,343 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 16:21:15,344 - app.main - ERROR - 系统启动失败: 'ModelManager' object has no attribute 'logger'
+2025-05-25 16:21:15,344 - app.main - ERROR - 系统启动失败: 'ModelManager' object has no attribute 'logger'
+2025-05-25 19:54:05,040 - __main__ - INFO - ==================================================
+2025-05-25 19:54:05,040 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 19:54:05,040 - __main__ - INFO - ==================================================
+2025-05-25 19:54:05,040 - __main__ - INFO - PyTorch版本: 2.7.0+cpu
+2025-05-25 19:54:05,040 - __main__ - WARNING - CUDA不可用，将使用CPU运行
+2025-05-25 19:54:06,099 - __main__ - INFO - Transformers版本: 4.52.3
+2025-05-25 19:54:06,386 - __main__ - INFO - Whisper语音识别可用
+2025-05-25 19:54:06,608 - __main__ - INFO - FastAPI版本: 0.115.12
+2025-05-25 19:54:06,608 - __main__ - INFO - 训练数据已存在
+2025-05-25 19:54:06,609 - __main__ - INFO - 正在启动Web服务...
+2025-05-25 19:54:06,609 - __main__ - INFO - 访问地址: http://localhost:8000
+2025-05-25 19:54:08,328 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 19:54:08,328 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 19:54:08,329 - models.model_manager - INFO - 使用CPU运行
+2025-05-25 19:54:08,329 - models.model_manager - INFO - 使用CPU运行
+2025-05-25 19:54:08,329 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 19:54:08,329 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 19:54:08,330 - jieba - DEBUG - Loading model from cache C:\Users\Jack\AppData\Local\Temp\jieba.cache
+2025-05-25 19:54:08,330 - jieba - DEBUG - Loading model from cache C:\Users\Jack\AppData\Local\Temp\jieba.cache
+2025-05-25 19:54:08,619 - jieba - DEBUG - Loading model cost 0.290 seconds.
+2025-05-25 19:54:08,619 - jieba - DEBUG - Loading model cost 0.290 seconds.
+2025-05-25 19:54:08,620 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 19:54:08,620 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 19:54:08,621 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 19:54:08,621 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 19:54:08,747 - app.main - INFO - 系统启动成功
+2025-05-25 19:54:08,747 - app.main - INFO - 系统启动成功
+2025-05-25 19:54:08,748 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 19:54:08,748 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 19:54:08,748 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 19:54:08,748 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 19:54:08,748 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 19:54:08,748 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 19:54:09,228 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 19:54:09,228 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 19:54:09,229 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen2-0.5B-Instruct
+2025-05-25 19:54:09,229 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen2-0.5B-Instruct
+2025-05-25 19:54:09,229 - models.model_manager - INFO - 使用镜像源: https://hf-mirror.com
+2025-05-25 19:54:09,229 - models.model_manager - INFO - 使用镜像源: https://hf-mirror.com
+2025-05-25 19:54:13,846 - models.model_manager - INFO - 大语言模型加载成功
+2025-05-25 19:54:13,846 - models.model_manager - INFO - 大语言模型加载成功
+2025-05-25 19:54:13,847 - models.model_manager - INFO - 所有模型初始化成功
+2025-05-25 19:54:13,847 - models.model_manager - INFO - 所有模型初始化成功
+2025-05-25 19:54:13,848 - app.main - INFO - AI模型加载完成
+2025-05-25 19:54:13,848 - app.main - INFO - AI模型加载完成
+2025-05-25 20:04:58,552 - __main__ - INFO - ==================================================
+2025-05-25 20:04:58,553 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 20:04:58,553 - __main__ - INFO - ==================================================
+2025-05-25 20:04:58,553 - __main__ - INFO - PyTorch版本: 2.7.0+cpu
+2025-05-25 20:04:58,553 - __main__ - WARNING - CUDA不可用，将使用CPU运行
+2025-05-25 20:06:11,295 - __main__ - INFO - ==================================================
+2025-05-25 20:06:11,295 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 20:06:11,295 - __main__ - INFO - ==================================================
+2025-05-25 20:06:11,297 - __main__ - INFO - PyTorch版本: 2.7.0+cpu
+2025-05-25 20:06:11,297 - __main__ - WARNING - CUDA不可用，将使用CPU运行
+2025-05-25 20:06:12,708 - __main__ - INFO - Transformers版本: 4.52.3
+2025-05-25 20:06:13,435 - __main__ - INFO - Whisper语音识别可用
+2025-05-25 20:06:13,999 - __main__ - INFO - FastAPI版本: 0.115.12
+2025-05-25 20:06:14,000 - __main__ - INFO - 训练数据已存在
+2025-05-25 20:06:14,000 - __main__ - INFO - 正在启动Web服务...
+2025-05-25 20:06:14,000 - __main__ - INFO - 访问地址: http://localhost:8000
+2025-05-25 20:06:17,893 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 20:06:17,893 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 20:06:17,894 - models.model_manager - INFO - 使用CPU运行
+2025-05-25 20:06:17,894 - models.model_manager - INFO - 使用CPU运行
+2025-05-25 20:06:17,894 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 20:06:17,894 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 20:06:17,895 - jieba - DEBUG - Loading model from cache C:\Users\Jack\AppData\Local\Temp\jieba.cache
+2025-05-25 20:06:17,895 - jieba - DEBUG - Loading model from cache C:\Users\Jack\AppData\Local\Temp\jieba.cache
+2025-05-25 20:06:18,178 - jieba - DEBUG - Loading model cost 0.284 seconds.
+2025-05-25 20:06:18,178 - jieba - DEBUG - Loading model cost 0.284 seconds.
+2025-05-25 20:06:18,178 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 20:06:18,178 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 20:06:18,179 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 20:06:18,179 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 20:06:18,273 - app.main - INFO - 系统启动成功
+2025-05-25 20:06:18,273 - app.main - INFO - 系统启动成功
+2025-05-25 20:06:18,273 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 20:06:18,273 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 20:06:18,274 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 20:06:18,274 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 20:06:18,274 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 20:06:18,274 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 20:06:18,845 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 20:06:18,845 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 20:06:18,846 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen2-0.5B-Instruct
+2025-05-25 20:06:18,846 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen2-0.5B-Instruct
+2025-05-25 20:06:33,433 - huggingface_hub.file_download - WARNING - Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2025-05-25 20:06:33,433 - huggingface_hub.file_download - WARNING - Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2025-05-25 21:12:14,039 - __main__ - INFO - ==================================================
+2025-05-25 21:12:14,040 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 21:12:14,040 - __main__ - INFO - ==================================================
+2025-05-25 21:12:14,040 - __main__ - INFO - PyTorch版本: 2.7.0+cu126
+2025-05-25 21:12:14,053 - __main__ - INFO - CUDA可用: NVIDIA GeForce RTX 4060 Laptop GPU
+2025-05-25 21:12:14,053 - __main__ - INFO - CUDA版本: 12.6
+2025-05-25 21:12:14,572 - __main__ - INFO - Transformers版本: 4.52.3
+2025-05-25 21:12:14,873 - __main__ - INFO - Whisper语音识别可用
+2025-05-25 21:12:15,184 - __main__ - INFO - FastAPI版本: 0.115.12
+2025-05-25 21:12:15,184 - __main__ - INFO - 训练数据已存在
+2025-05-25 21:12:15,184 - __main__ - INFO - 正在启动Web服务...
+2025-05-25 21:12:15,184 - __main__ - INFO - 访问地址: http://localhost:8000
+2025-05-25 21:12:17,096 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:12:17,096 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:12:17,096 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:12:17,096 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:12:17,096 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:12:17,096 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:12:17,353 - jieba - DEBUG - Dumping model to file cache /tmp/jieba.cache
+2025-05-25 21:12:17,353 - jieba - DEBUG - Dumping model to file cache /tmp/jieba.cache
+2025-05-25 21:12:17,374 - jieba - DEBUG - Loading model cost 0.277 seconds.
+2025-05-25 21:12:17,374 - jieba - DEBUG - Loading model cost 0.277 seconds.
+2025-05-25 21:12:17,374 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:12:17,374 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:12:17,374 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:12:17,374 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:12:17,374 - app.main - ERROR - 系统启动失败: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:12:17,374 - app.main - ERROR - 系统启动失败: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:13:19,972 - __main__ - INFO - ==================================================
+2025-05-25 21:13:19,972 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 21:13:19,972 - __main__ - INFO - ==================================================
+2025-05-25 21:13:19,972 - __main__ - INFO - PyTorch版本: 2.7.0+cu126
+2025-05-25 21:13:19,984 - __main__ - INFO - CUDA可用: NVIDIA GeForce RTX 4060 Laptop GPU
+2025-05-25 21:13:19,984 - __main__ - INFO - CUDA版本: 12.6
+2025-05-25 21:13:20,229 - __main__ - INFO - Transformers版本: 4.52.3
+2025-05-25 21:13:20,383 - __main__ - INFO - Whisper语音识别可用
+2025-05-25 21:13:20,483 - __main__ - INFO - FastAPI版本: 0.115.12
+2025-05-25 21:13:20,483 - __main__ - INFO - 训练数据已存在
+2025-05-25 21:13:20,483 - __main__ - INFO - 正在启动Web服务...
+2025-05-25 21:13:20,483 - __main__ - INFO - 访问地址: http://localhost:8000
+2025-05-25 21:13:21,221 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:13:21,221 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:13:21,221 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:13:21,221 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:13:21,221 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:13:21,221 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:13:21,221 - jieba - DEBUG - Loading model from cache /tmp/jieba.cache
+2025-05-25 21:13:21,221 - jieba - DEBUG - Loading model from cache /tmp/jieba.cache
+2025-05-25 21:13:21,504 - jieba - DEBUG - Loading model cost 0.283 seconds.
+2025-05-25 21:13:21,504 - jieba - DEBUG - Loading model cost 0.283 seconds.
+2025-05-25 21:13:21,504 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:13:21,504 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:13:21,504 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:13:21,504 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:13:21,504 - app.main - WARNING - 音频录制功能不可用: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:13:21,504 - app.main - WARNING - 音频录制功能不可用: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:13:21,504 - app.main - INFO - 系统启动成功
+2025-05-25 21:13:21,504 - app.main - INFO - 系统启动成功
+2025-05-25 21:13:21,504 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 21:13:21,504 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 21:13:21,504 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 21:13:21,504 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 21:13:21,505 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 21:13:21,505 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 21:13:31,215 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 21:13:31,215 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 21:13:31,215 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen2-0.5B-Instruct
+2025-05-25 21:13:31,215 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen2-0.5B-Instruct
+2025-05-25 21:15:54,180 - __main__ - INFO - ==================================================
+2025-05-25 21:15:54,180 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 21:15:54,180 - __main__ - INFO - ==================================================
+2025-05-25 21:15:54,180 - __main__ - INFO - PyTorch版本: 2.7.0+cu126
+2025-05-25 21:15:54,193 - __main__ - INFO - CUDA可用: NVIDIA GeForce RTX 4060 Laptop GPU
+2025-05-25 21:15:54,193 - __main__ - INFO - CUDA版本: 12.6
+2025-05-25 21:15:54,426 - __main__ - INFO - Transformers版本: 4.52.3
+2025-05-25 21:15:54,583 - __main__ - INFO - Whisper语音识别可用
+2025-05-25 21:15:54,682 - __main__ - INFO - FastAPI版本: 0.115.12
+2025-05-25 21:15:54,682 - __main__ - INFO - 训练数据已存在
+2025-05-25 21:15:54,682 - __main__ - INFO - 正在启动Web服务...
+2025-05-25 21:15:54,682 - __main__ - INFO - 访问地址: http://localhost:8000
+2025-05-25 21:15:55,439 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:15:55,439 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:15:55,439 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:15:55,439 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:15:55,439 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:15:55,439 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:15:55,439 - jieba - DEBUG - Loading model from cache /tmp/jieba.cache
+2025-05-25 21:15:55,439 - jieba - DEBUG - Loading model from cache /tmp/jieba.cache
+2025-05-25 21:15:55,693 - jieba - DEBUG - Loading model cost 0.254 seconds.
+2025-05-25 21:15:55,693 - jieba - DEBUG - Loading model cost 0.254 seconds.
+2025-05-25 21:15:55,693 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:15:55,693 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:15:55,693 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:15:55,693 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:15:55,693 - app.main - WARNING - 音频录制功能不可用: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:15:55,693 - app.main - WARNING - 音频录制功能不可用: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:15:55,693 - app.main - INFO - 系统启动成功
+2025-05-25 21:15:55,693 - app.main - INFO - 系统启动成功
+2025-05-25 21:15:55,693 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 21:15:55,693 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 21:15:55,693 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 21:15:55,693 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 21:15:55,693 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 21:15:55,693 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 21:15:56,197 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 21:15:56,197 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 21:15:56,197 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen3-0.6B
+2025-05-25 21:15:56,197 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen3-0.6B
+2025-05-25 21:15:58,697 - accelerate.utils.modeling - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+2025-05-25 21:15:58,697 - accelerate.utils.modeling - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+2025-05-25 21:16:00,227 - models.model_manager - INFO - 大语言模型 Qwen/Qwen3-0.6B 加载成功
+2025-05-25 21:16:00,227 - models.model_manager - INFO - 大语言模型 Qwen/Qwen3-0.6B 加载成功
+2025-05-25 21:16:00,227 - models.model_manager - INFO - 所有模型初始化成功
+2025-05-25 21:16:00,227 - models.model_manager - INFO - 所有模型初始化成功
+2025-05-25 21:16:00,227 - app.main - INFO - AI模型加载完成
+2025-05-25 21:16:00,227 - app.main - INFO - AI模型加载完成
+2025-05-25 21:18:43,291 - models.model_manager - ERROR - 语音转文本失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:18:43,291 - models.model_manager - ERROR - 语音转文本失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:18:43,291 - root - ERROR - 音频分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:18:43,291 - root - ERROR - 音频分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:18:43,291 - root - ERROR - 音频上传分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:18:43,291 - root - ERROR - 音频上传分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,029 - models.model_manager - ERROR - 语音转文本失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,029 - models.model_manager - ERROR - 语音转文本失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,029 - root - ERROR - 音频分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,029 - root - ERROR - 音频分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,029 - root - ERROR - 音频上传分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,029 - root - ERROR - 音频上传分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,041 - models.model_manager - ERROR - 语音转文本失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,041 - models.model_manager - ERROR - 语音转文本失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,041 - root - ERROR - 音频分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,041 - root - ERROR - 音频分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,041 - root - ERROR - 音频上传分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:19:08,041 - root - ERROR - 音频上传分析失败: [Errno 2] No such file or directory: 'ffmpeg'
+2025-05-25 21:21:07,230 - __main__ - INFO - ==================================================
+2025-05-25 21:21:07,230 - __main__ - INFO - AI语音政治风险监测系统启动
+2025-05-25 21:21:07,230 - __main__ - INFO - ==================================================
+2025-05-25 21:21:07,230 - __main__ - INFO - PyTorch版本: 2.7.0+cu126
+2025-05-25 21:21:07,243 - __main__ - INFO - CUDA可用: NVIDIA GeForce RTX 4060 Laptop GPU
+2025-05-25 21:21:07,243 - __main__ - INFO - CUDA版本: 12.6
+2025-05-25 21:21:07,460 - __main__ - INFO - Transformers版本: 4.52.3
+2025-05-25 21:21:07,591 - __main__ - INFO - Whisper语音识别可用
+2025-05-25 21:21:07,696 - __main__ - INFO - FastAPI版本: 0.115.12
+2025-05-25 21:21:07,696 - __main__ - INFO - 训练数据已存在
+2025-05-25 21:21:07,696 - __main__ - INFO - 正在启动Web服务...
+2025-05-25 21:21:07,696 - __main__ - INFO - 访问地址: http://localhost:8000
+2025-05-25 21:21:08,383 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:21:08,383 - app.main - INFO - 正在启动AI语音政治风险监测系统...
+2025-05-25 21:21:08,383 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:21:08,383 - models.model_manager - INFO - CUDA可用，GPU数量: 1
+2025-05-25 21:21:08,383 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:21:08,383 - jieba - DEBUG - Building prefix dict from the default dictionary ...
+2025-05-25 21:21:08,384 - jieba - DEBUG - Loading model from cache /tmp/jieba.cache
+2025-05-25 21:21:08,384 - jieba - DEBUG - Loading model from cache /tmp/jieba.cache
+2025-05-25 21:21:08,649 - jieba - DEBUG - Loading model cost 0.265 seconds.
+2025-05-25 21:21:08,649 - jieba - DEBUG - Loading model cost 0.265 seconds.
+2025-05-25 21:21:08,649 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:21:08,649 - jieba - DEBUG - Prefix dict has been built successfully.
+2025-05-25 21:21:08,649 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:21:08,649 - models.risk_analyzer - INFO - 自定义政治词典加载完成
+2025-05-25 21:21:08,649 - app.main - WARNING - 音频录制功能不可用: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:21:08,649 - app.main - WARNING - 音频录制功能不可用: PyAudio 不可用，无法使用音频录制功能
+2025-05-25 21:21:08,649 - app.main - INFO - 系统启动成功
+2025-05-25 21:21:08,649 - app.main - INFO - 系统启动成功
+2025-05-25 21:21:08,649 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 21:21:08,649 - app.main - INFO - 开始后台加载AI模型...
+2025-05-25 21:21:08,649 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 21:21:08,649 - models.model_manager - INFO - 开始初始化AI模型...
+2025-05-25 21:21:08,649 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 21:21:08,649 - models.model_manager - INFO - 正在加载Whisper模型: base
+2025-05-25 21:21:09,199 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 21:21:09,199 - models.model_manager - INFO - Whisper模型加载成功
+2025-05-25 21:21:09,199 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen3-0.6B
+2025-05-25 21:21:09,199 - models.model_manager - INFO - 正在加载大语言模型: Qwen/Qwen3-0.6B
+2025-05-25 21:21:11,361 - accelerate.utils.modeling - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+2025-05-25 21:21:11,361 - accelerate.utils.modeling - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+2025-05-25 21:21:12,123 - models.model_manager - INFO - 大语言模型 Qwen/Qwen3-0.6B 加载成功
+2025-05-25 21:21:12,123 - models.model_manager - INFO - 大语言模型 Qwen/Qwen3-0.6B 加载成功
+2025-05-25 21:21:12,123 - models.model_manager - INFO - 所有模型初始化成功
+2025-05-25 21:21:12,123 - models.model_manager - INFO - 所有模型初始化成功
+2025-05-25 21:21:12,123 - app.main - INFO - AI模型加载完成
+2025-05-25 21:21:12,123 - app.main - INFO - AI模型加载完成

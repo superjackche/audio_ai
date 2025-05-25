@@ -1,17 +1,54 @@
 import os
 import logging
 import wave
-import pyaudio
 import threading
 import time
 from pathlib import Path
 from typing import Optional, Callable, Any
 import tempfile
 
+# 可选导入 pyaudio
+try:
+    import pyaudio
+    PYAUDIO_AVAILABLE = True
+except ImportError as e:
+    print(f"警告: PyAudio 不可用: {e}")
+    print("音频录制功能将被禁用，但系统其他功能可以正常使用")
+    pyaudio = None
+    PYAUDIO_AVAILABLE = False
+
+# 可选导入音频处理库
+try:
+    import librosa
+    LIBROSA_AVAILABLE = True
+except ImportError:
+    print("警告: librosa 不可用，高级音频处理功能将被禁用")
+    librosa = None
+    LIBROSA_AVAILABLE = False
+
+try:
+    import soundfile as sf
+    SOUNDFILE_AVAILABLE = True
+except ImportError:
+    print("警告: soundfile 不可用，音频格式转换功能将被限制")
+    sf = None
+    SOUNDFILE_AVAILABLE = False
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    print("警告: numpy 不可用，数值计算功能将被限制")
+    np = None
+    NUMPY_AVAILABLE = False
+
 class AudioRecorder:
     """音频录制器"""
     
     def __init__(self, sample_rate: int = 16000, channels: int = 1, chunk_size: int = 1024):
+        if not PYAUDIO_AVAILABLE:
+            raise ImportError("PyAudio 不可用，无法使用音频录制功能")
+            
         self.sample_rate = sample_rate
         self.channels = channels
         self.chunk_size = chunk_size
@@ -98,25 +135,27 @@ class AudioRecorder:
 
 class AudioProcessor:
     """音频处理工具"""
-    
     @staticmethod
     def validate_audio_file(file_path: str) -> bool:
         """验证音频文件"""
+        if not LIBROSA_AVAILABLE:
+            print("警告: librosa 不可用，使用简单的文件验证")
+            return os.path.exists(file_path) and file_path.lower().endswith(('.wav', '.mp3', '.m4a', '.flac'))
+        
         try:
-            import librosa
             # 尝试加载音频文件
             audio, sr = librosa.load(file_path, sr=None)
             return len(audio) > 0
         except Exception:
             return False
-    
     @staticmethod
     def convert_audio_format(input_path: str, output_path: str, target_sr: int = 16000) -> bool:
         """转换音频格式"""
-        try:
-            import librosa
-            import soundfile as sf
+        if not LIBROSA_AVAILABLE or not SOUNDFILE_AVAILABLE:
+            print("警告: librosa 或 soundfile 不可用，音频格式转换功能被禁用")
+            return False
             
+        try:
             # 加载音频
             audio, sr = librosa.load(input_path, sr=target_sr)
             
@@ -126,24 +165,26 @@ class AudioProcessor:
         except Exception as e:
             logging.error(f"音频格式转换失败: {e}")
             return False
-    
     @staticmethod
     def get_audio_duration(file_path: str) -> Optional[float]:
         """获取音频时长（秒）"""
+        if not LIBROSA_AVAILABLE:
+            print("警告: librosa 不可用，无法获取音频时长")
+            return None
+            
         try:
-            import librosa
             audio, sr = librosa.load(file_path, sr=None)
             return len(audio) / sr
         except Exception:
             return None
-    
     @staticmethod
     def extract_audio_features(file_path: str) -> dict:
         """提取音频特征"""
-        try:
-            import librosa
-            import numpy as np
+        if not LIBROSA_AVAILABLE or not NUMPY_AVAILABLE:
+            print("警告: librosa 或 numpy 不可用，音频特征提取功能被禁用")
+            return {}
             
+        try:
             audio, sr = librosa.load(file_path, sr=16000)
             
             # 提取基础特征

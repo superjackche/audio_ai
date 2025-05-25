@@ -142,55 +142,59 @@ class ModelManager:
             self.logger.warning("将启用备用分析模式（无大模型深度分析）")
             return False
     
-    def transcribe_audio(self, audio_path: str) -> Dict[str, Any]:
-        """语音转文本"""
+    def transcribe_audio(self, audio_path: str, progress_callback: Optional[callable] = None) -> Dict[str, Any]:
+        """语音转文本，自动检测语言"""
         if not self.whisper_model:
+            self.logger.error("Whisper模型未加载，无法进行语音转文本")
             raise RuntimeError("Whisper模型未加载")
         
+        self.logger.info(f"开始语音转文本: {audio_path}")
         try:
+            # 自动检测语言，并在CUDA可用时使用fp16加速
             result = self.whisper_model.transcribe(
                 audio_path,
-                language="zh",  # 主要针对中文
-                task="transcribe"
+                language=None,  # 自动检测语言
+                task="transcribe",
+                fp16=torch.cuda.is_available() # 使用fp16在GPU上加速
             )
             
+            detected_language = result.get("language", "unknown")
+            self.logger.info(f"语音转文本完成。检测到的语言: {detected_language}")
+            
+            if progress_callback:
+                progress_callback(100.0, f"语音转文本完成，检测到语言: {detected_language}")
+
             return {
                 "text": result["text"],
                 "segments": result.get("segments", []),
-                "language": result.get("language", "zh")
+                "language": detected_language 
             }
         except Exception as e:
             self.logger.error(f"语音转文本失败: {e}")
+            if progress_callback:
+                progress_callback(-1.0, f"语音转文本失败: {e}")
             raise
     
-    def analyze_text_risk(self, text: str) -> Dict[str, Any]:
-        """分析文本的政治风险"""
+    def analyze_text_risk(self, text: str, language: str = "zh") -> Dict[str, Any]: # Added language parameter
+        """分析文本的政治风险，根据语言选择提示"""
         if not self.llm_model or not self.llm_tokenizer:
+            self.logger.error("大语言模型未加载，无法进行文本风险分析")
             raise RuntimeError("大语言模型未加载")
         
+        self.logger.info(f"开始文本风险分析，语言: {language}")
         try:
-            # 构建提示词
-            prompt = self._build_risk_analysis_prompt(text)
-              # 根据模型类型选择不同的生成方法
+            prompt = self._build_risk_analysis_prompt(text, language)
+            # ... (rest of the generation logic remains the same) ...
             model_name = MODEL_CONFIG['llm_model'].lower()
             
             if "gemma" in model_name:
-                # Gemma 模型的生成方式
                 messages = [{"role": "user", "content": prompt}]
-                
-                # 应用聊天模板
                 formatted_text = self.llm_tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True
+                    messages, tokenize=False, add_generation_prompt=True
                 )
-                
-                # 编码输入
                 model_inputs = self.llm_tokenizer([formatted_text], return_tensors="pt")
                 if self.device == "cuda":
                     model_inputs = model_inputs.to("cuda")
-                
-                # 生成响应
                 generated_ids = self.llm_model.generate(
                     model_inputs.input_ids,
                     max_new_tokens=512,
@@ -199,16 +203,11 @@ class ModelManager:
                     pad_token_id=self.llm_tokenizer.eos_token_id,
                     eos_token_id=self.llm_tokenizer.eos_token_id
                 )
-                
-                # 解码响应
                 generated_ids = [
                     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
                 ]
-                
                 response = self.llm_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-                
             elif "chatglm" in model_name:
-                # ChatGLM的chat接口
                 response, _ = self.llm_model.chat(
                     self.llm_tokenizer,
                     prompt,
@@ -217,36 +216,27 @@ class ModelManager:
                     temperature=MODEL_CONFIG['temperature']
                 )
             elif "qwen" in model_name:
-                # Qwen的generate接口
                 messages = [{"role": "user", "content": prompt}]
-                text = self.llm_tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True
+                text_for_model = self.llm_tokenizer.apply_chat_template( # Renamed 'text' to 'text_for_model' to avoid conflict
+                    messages, tokenize=False, add_generation_prompt=True
                 )
-                
-                model_inputs = self.llm_tokenizer([text], return_tensors="pt")
+                model_inputs = self.llm_tokenizer([text_for_model], return_tensors="pt")
                 if self.device == "cuda":
                     model_inputs = model_inputs.to("cuda")
-                
                 generated_ids = self.llm_model.generate(
                     model_inputs.input_ids,
                     max_new_tokens=512,
                     temperature=MODEL_CONFIG['temperature'],
                     do_sample=True
                 )
-                
                 generated_ids = [
                     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
                 ]
-                
                 response = self.llm_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
             else:
-                # 通用的generate接口
                 inputs = self.llm_tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MODEL_CONFIG['max_length'])
                 if self.device == "cuda":
                     inputs = inputs.to("cuda")
-                
                 with torch.no_grad():
                     outputs = self.llm_model.generate(
                         **inputs,
@@ -255,20 +245,40 @@ class ModelManager:
                         do_sample=True,
                         pad_token_id=self.llm_tokenizer.eos_token_id
                     )
-                
                 response = self.llm_tokenizer.decode(outputs[0], skip_special_tokens=True)
-                # 移除输入部分
                 response = response.replace(prompt, "").strip()
             
-            # 解析结果
-            return self._parse_risk_analysis(response)
+            self.logger.info("文本风险分析完成")
+            return self._parse_risk_analysis(response, language)
         except Exception as e:
             self.logger.error(f"文本风险分析失败: {e}")
             raise
     
-    def _build_risk_analysis_prompt(self, text: str) -> str:
-        """构建风险分析提示词"""
-        prompt = f"""
+    def _build_risk_analysis_prompt(self, text: str, language: str = "zh") -> str:
+        """构建风险分析提示词，根据语言选择模板"""
+        if language.lower().startswith("en"):
+            # English Prompt
+            prompt = f"""
+You are an expert in analyzing text for potential risks, including misinformation, sensitive topics, and controversial content. Please analyze the following text.
+
+Analysis requirements:
+1. Identify any potentially sensitive or controversial statements.
+2. Assess the general tone and sentiment.
+3. Provide a risk level (Low/Medium/High).
+4. Briefly explain the key reasons for your assessment.
+
+Text to analyze:
+{text}
+
+Please return the analysis in JSON format with the following fields:
+- risk_level: (Low/Medium/High)
+- risk_score: (0-100, where 100 is highest risk)
+- key_issues: (List of strings describing key issues)
+- suggestions: (List of strings for improvement or caution)
+- detailed_analysis: (A brief overall analysis)
+"""
+        else:  # Default to Chinese prompt
+            prompt = f"""
 你是一个专业的意识形态风险分析专家。请分析以下文本内容是否存在政治风险或意识形态问题。
 
 分析要求：
@@ -290,34 +300,34 @@ class ModelManager:
 """
         return prompt
     
-    def _parse_risk_analysis(self, response: str) -> Dict[str, Any]:
+    def _parse_risk_analysis(self, response: str, language: str = "zh") -> Dict[str, Any]: # Added language parameter
         """解析风险分析结果"""
         try:
-            # 尝试解析JSON格式的响应
             import json
             import re
             
-            # 提取JSON部分
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group()
                 return json.loads(json_str)
             else:
-                # 如果无法解析JSON，返回默认格式
+                self.logger.warning(f"无法从LLM响应中提取JSON: {response}")
+                default_message = "Could not parse analysis from LLM response." if language.startswith("en") else "无法从大模型响应中解析分析结果。"
                 return {
-                    "risk_level": "未知",
+                    "risk_level": "Unknown" if language.startswith("en") else "未知",
                     "risk_score": 0,
-                    "key_issues": [],
+                    "key_issues": [default_message],
                     "suggestions": [],
                     "detailed_analysis": response
                 }
         except Exception as e:
             self.logger.error(f"解析分析结果失败: {e}")
+            default_error_message = "Error parsing analysis result." if language.startswith("en") else "结果解析失败"
             return {
-                "risk_level": "解析错误",
+                "risk_level": "Error" if language.startswith("en") else "解析错误",
                 "risk_score": 0,
-                "key_issues": ["结果解析失败"],
-                "suggestions": ["请重新分析"],
+                "key_issues": [default_error_message],
+                "suggestions": ["Please try again." if language.startswith("en") else "请重新分析"],
                 "detailed_analysis": response
             }
     def initialize_models(self) -> bool:
