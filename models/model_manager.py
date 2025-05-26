@@ -1,13 +1,9 @@
-import os
 import torch
 import whisper
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
 import logging
 from typing import Optional, List, Dict, Any
 from config.settings import MODEL_CONFIG, DATA_PATHS
-
-# 设置HuggingFace镜像站
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 class ModelManager:
     """AI模型管理器，负责加载和管理语音识别和大语言模型"""
@@ -49,15 +45,13 @@ class ModelManager:
         try:
             model_name = MODEL_CONFIG['llm_model']
             self.logger.info(f"正在加载大语言模型: {model_name}")
-            
-            # 对于 Qwen 模型，使用 AutoModelForCausalLM
+              # 对于 Qwen 模型，使用 AutoModelForCausalLM
             if "qwen" in model_name.lower():
                 # 加载tokenizer
                 self.llm_tokenizer = AutoTokenizer.from_pretrained(
                     model_name,
                     trust_remote_code=MODEL_CONFIG.get('trust_remote_code', True),
-                    cache_dir=str(DATA_PATHS['models_dir'] / 'cache'),
-                    use_fast=MODEL_CONFIG.get('use_fast_tokenizer', True)
+                    cache_dir=str(DATA_PATHS['models_dir'] / 'cache')
                 )
                 
                 # 添加 pad_token
@@ -68,26 +62,15 @@ class ModelManager:
                 model_kwargs = {
                     "trust_remote_code": MODEL_CONFIG.get('trust_remote_code', True),
                     "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
+                    "torch_dtype": MODEL_CONFIG.get('torch_dtype', torch.float16 if self.device == "cuda" else torch.float32),
                     "low_cpu_mem_usage": MODEL_CONFIG.get('low_cpu_mem_usage', True),
                 }
                 
-                # 特殊处理GPTQ量化模型
-                if "gptq" in model_name.lower():
-                    self.logger.info("检测到GPTQ量化模型，使用特殊配置")
-                    # GPTQ模型不需要手动设置torch_dtype，会自动处理
-                    if self.device == "cuda":
-                        model_kwargs["device_map"] = MODEL_CONFIG.get('device_map', 'auto')
-                    else:
-                        # GPTQ模型在CPU上可能有兼容性问题
-                        self.logger.warning("GPTQ模型推荐在GPU上运行")
-                        model_kwargs["torch_dtype"] = torch.float32
+                # 设备映射
+                if self.device == "cuda":
+                    model_kwargs["device_map"] = MODEL_CONFIG.get('device_map', 'auto')
                 else:
-                    # 非量化模型的标准配置
-                    model_kwargs["torch_dtype"] = MODEL_CONFIG.get('torch_dtype', torch.float16 if self.device == "cuda" else torch.float32)
-                    if self.device == "cuda":
-                        model_kwargs["device_map"] = MODEL_CONFIG.get('device_map', 'auto')
-                    else:
-                        model_kwargs["torch_dtype"] = torch.float32
+                    model_kwargs["torch_dtype"] = torch.float32
                 
                 # 加载模型 - 对于 Qwen 使用 AutoModelForCausalLM
                 self.llm_model = AutoModelForCausalLM.from_pretrained(
@@ -120,93 +103,94 @@ class ModelManager:
                 else:
                     model_kwargs["torch_dtype"] = torch.float32
                 
-                # 加载模型
+                # 加载模型 - 对于 Gemma 使用 AutoModelForCausalLM
                 self.llm_model = AutoModelForCausalLM.from_pretrained(
                     model_name,
                     **model_kwargs
                 )
             else:
-                # 默认处理其他模型
+                # 其他模型的加载方式
                 self.llm_tokenizer = AutoTokenizer.from_pretrained(
                     model_name,
-                    trust_remote_code=MODEL_CONFIG.get('trust_remote_code', True),
+                    trust_remote_code=True,
                     cache_dir=str(DATA_PATHS['models_dir'] / 'cache')
                 )
                 
-                if self.llm_tokenizer.pad_token is None:
-                    self.llm_tokenizer.pad_token = self.llm_tokenizer.eos_token
+                model_kwargs = {
+                    "trust_remote_code": True,
+                    "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
+                    "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
+                }
+                
+                if self.device == "cpu":
+                    model_kwargs["torch_dtype"] = torch.float32
+                else:
+                    model_kwargs["device_map"] = "auto"
                 
                 self.llm_model = AutoModel.from_pretrained(
                     model_name,
-                    trust_remote_code=MODEL_CONFIG.get('trust_remote_code', True),
-                    cache_dir=str(DATA_PATHS['models_dir'] / 'cache'),
-                    torch_dtype=MODEL_CONFIG.get('torch_dtype', torch.float16 if self.device == "cuda" else torch.float32),
-                    device_map=MODEL_CONFIG.get('device_map', 'auto') if self.device == "cuda" else None,
+                    **model_kwargs
                 )
             
-            self.logger.info("大语言模型加载成功")
+            # 设置为评估模式
+            self.llm_model.eval()
+            
+            self.logger.info(f"大语言模型 {model_name} 加载成功")
             return True
         except Exception as e:
             self.logger.error(f"大语言模型加载失败: {e}")
+            self.logger.warning("将启用备用分析模式（无大模型深度分析）")
             return False
     
-    def transcribe_audio(self, audio_path: str, progress_callback: Optional[callable] = None) -> Dict[str, Any]:
-        """转录音频文件为文本"""
+    def transcribe_audio(self, audio_path: str) -> Dict[str, Any]:
+        """语音转文本"""
         if not self.whisper_model:
-            self.logger.error("Whisper模型未加载，无法进行语音转文本")
             raise RuntimeError("Whisper模型未加载")
         
-        self.logger.info(f"开始语音转文本 (加载音频): {audio_path}")
         try:
-            # 先将音频加载到numpy数组，避免ffmpeg直接处理复杂或非ASCII路径
-            audio_np = whisper.load_audio(audio_path)
-            self.logger.info(f"音频加载到内存成功: {audio_path}")
-
-            # 自动检测语言，并在CUDA可用时使用fp16加速
-            # 将numpy数组传递给transcribe方法
             result = self.whisper_model.transcribe(
-                audio_np,  # 使用加载到内存的音频数据
-                language=None,  # 自动检测语言
-                task="transcribe",
-                fp16=torch.cuda.is_available()  # 使用fp16在GPU上加速
+                audio_path,
+                language="zh",  # 主要针对中文
+                task="transcribe"
             )
             
-            detected_language = result.get("language", "unknown")
-            self.logger.info(f"语音转文本完成。检测到的语言: {detected_language}")
-            
-            if progress_callback:
-                progress_callback(100.0, f"语音转文本完成，检测到语言: {detected_language}")
-
             return {
                 "text": result["text"],
                 "segments": result.get("segments", []),
-                "language": detected_language 
+                "language": result.get("language", "zh")
             }
         except Exception as e:
             self.logger.error(f"语音转文本失败: {e}")
-            if progress_callback:
-                progress_callback(-1.0, f"语音转文本失败: {e}")
             raise
     
-    def analyze_text_risk(self, text: str, language: str = "zh") -> Dict[str, Any]:
-        """分析文本的政治风险，根据语言选择提示"""
+    def analyze_text_risk(self, text: str) -> Dict[str, Any]:
+        """分析文本的政治风险"""
         if not self.llm_model or not self.llm_tokenizer:
-            self.logger.error("大语言模型未加载，无法进行文本风险分析")
             raise RuntimeError("大语言模型未加载")
         
-        self.logger.info(f"开始文本风险分析，语言: {language}")
         try:
-            prompt = self._build_risk_analysis_prompt(text, language)
+            # 构建提示词
+            prompt = self._build_risk_analysis_prompt(text)
+              # 根据模型类型选择不同的生成方法
             model_name = MODEL_CONFIG['llm_model'].lower()
             
             if "gemma" in model_name:
+                # Gemma 模型的生成方式
                 messages = [{"role": "user", "content": prompt}]
+                
+                # 应用聊天模板
                 formatted_text = self.llm_tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True
                 )
+                
+                # 编码输入
                 model_inputs = self.llm_tokenizer([formatted_text], return_tensors="pt")
                 if self.device == "cuda":
                     model_inputs = model_inputs.to("cuda")
+                
+                # 生成响应
                 generated_ids = self.llm_model.generate(
                     model_inputs.input_ids,
                     max_new_tokens=512,
@@ -215,11 +199,16 @@ class ModelManager:
                     pad_token_id=self.llm_tokenizer.eos_token_id,
                     eos_token_id=self.llm_tokenizer.eos_token_id
                 )
+                
+                # 解码响应
                 generated_ids = [
                     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
                 ]
+                
                 response = self.llm_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+                
             elif "chatglm" in model_name:
+                # ChatGLM的chat接口
                 response, _ = self.llm_model.chat(
                     self.llm_tokenizer,
                     prompt,
@@ -228,31 +217,36 @@ class ModelManager:
                     temperature=MODEL_CONFIG['temperature']
                 )
             elif "qwen" in model_name:
-                messages = [
-                    {"role": "system", "content": "You are an expert risk analysis AI. Think through your analysis carefully, then provide your final answer as a JSON object. You may use <think> tags for your reasoning process, but end with a clean JSON response."},
-                    {"role": "user", "content": prompt}
-                ]
-                text_for_model = self.llm_tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
+                # Qwen的generate接口
+                messages = [{"role": "user", "content": prompt}]
+                text = self.llm_tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True
                 )
-                model_inputs = self.llm_tokenizer([text_for_model], return_tensors="pt")
+                
+                model_inputs = self.llm_tokenizer([text], return_tensors="pt")
                 if self.device == "cuda":
                     model_inputs = model_inputs.to("cuda")
+                
                 generated_ids = self.llm_model.generate(
                     model_inputs.input_ids,
-                    max_new_tokens=1024,  # 增加输出长度以支持思考过程
-                    temperature=0.7,  # 适中的温度平衡创造性和准确性
-                    do_sample=True,
-                    repetition_penalty=1.1
+                    max_new_tokens=512,
+                    temperature=MODEL_CONFIG['temperature'],
+                    do_sample=True
                 )
+                
                 generated_ids = [
                     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
                 ]
+                
                 response = self.llm_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
             else:
+                # 通用的generate接口
                 inputs = self.llm_tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MODEL_CONFIG['max_length'])
                 if self.device == "cuda":
                     inputs = inputs.to("cuda")
+                
                 with torch.no_grad():
                     outputs = self.llm_model.generate(
                         **inputs,
@@ -261,214 +255,71 @@ class ModelManager:
                         do_sample=True,
                         pad_token_id=self.llm_tokenizer.eos_token_id
                     )
+                
                 response = self.llm_tokenizer.decode(outputs[0], skip_special_tokens=True)
+                # 移除输入部分
                 response = response.replace(prompt, "").strip()
             
-            self.logger.info("文本风险分析完成")
-            return self._parse_risk_analysis(response, language)
+            # 解析结果
+            return self._parse_risk_analysis(response)
         except Exception as e:
             self.logger.error(f"文本风险分析失败: {e}")
             raise
     
-    def _build_risk_analysis_prompt(self, text: str, language: str = "zh") -> str:
-        """构建风险分析提示词，根据语言选择模板"""
-        if language.lower().startswith("en"):
-            # English Prompt - 鼓励思考模式
-            prompt = f"""
-Analyze the following text for potential risks, including misinformation, sensitive topics, and controversial content.
+    def _build_risk_analysis_prompt(self, text: str) -> str:
+        """构建风险分析提示词"""
+        prompt = f"""
+你是一个专业的意识形态风险分析专家。请分析以下文本内容是否存在政治风险或意识形态问题。
 
-Text to analyze:
-{text}
-
-Please think through your analysis step by step. Consider:
-1. What are the key themes and messages in this text?
-2. Are there any potentially sensitive or controversial statements?
-3. What is the overall tone and sentiment?
-4. What risk level would you assign and why?
-5. What specific issues should be highlighted?
-6. What suggestions would improve the content?
-
-You may use <think> tags to show your reasoning process, then provide your final analysis as a JSON object with these exact fields:
-
-{{
-  "risk_level": "Low" | "Medium" | "High",
-  "risk_score": (integer from 0-100),
-  "key_issues": ["issue 1", "issue 2", ...],
-  "suggestions": ["suggestion 1", "suggestion 2", ...],
-  "detailed_analysis": "Brief overall analysis"
-}}
-"""
-        else:  # Default to Chinese prompt - 加强政治敏感性检测
-            prompt = f"""
-你是一个专业的政治风险和意识形态分析专家。请仔细分析以下文本是否存在政治风险或意识形态问题。
-
-**特别关注以下高风险内容：**
-- 涉及国家分裂、独立运动的内容（如台独、港独、疆独、藏独等）
-- 煽动颠覆国家政权、推翻政府的内容
-- 涉及暴力革命、武装起义的内容
-- 质疑国家主权、政府合法性的极端言论
-- 煽动民族仇恨、宗教极端主义的内容
-
-**风险等级标准：**
-- 高风险(85-100分)：直接涉及国家安全、分裂主义、颠覆政权、暴力煽动
-- 中风险(50-84分)：涉及政治敏感话题但表述相对温和，如政策批评、改革建议
-- 低风险(0-49分)：日常生活、学习、文化交流等无害内容
+分析要求：
+1. 识别可能的政治敏感内容
+2. 评估意识形态倾向
+3. 检测是否存在价值观冲突
+4. 给出风险等级（低风险/中风险/高风险）
+5. 提供具体的风险点说明
 
 需要分析的文本：
 {text}
 
-你可以在<think>标签中展示分析思路，然后必须提供一个完整的JSON格式结果：
-
-{{
-  "risk_level": "高风险" | "中风险" | "低风险",
-  "risk_score": 数字(0-100),
-  "key_issues": ["问题1", "问题2", ...],
-  "suggestions": ["建议1", "建议2", ...],
-  "detailed_analysis": "详细分析说明"
-}}
-
-请确保JSON格式正确，所有字段都包含。
+请以JSON格式返回分析结果，包含以下字段：
+- risk_level: 风险等级
+- risk_score: 风险分数(0-100)
+- key_issues: 关键问题列表
+- suggestions: 改进建议
+- detailed_analysis: 详细分析
 """
         return prompt
     
-    def _parse_risk_analysis(self, response: str, language: str = "zh") -> Dict[str, Any]:
-        """解析风险分析结果，专门优化处理带有思考过程的响应"""
+    def _parse_risk_analysis(self, response: str) -> Dict[str, Any]:
+        """解析风险分析结果"""
         try:
+            # 尝试解析JSON格式的响应
             import json
             import re
             
-            # 清理响应文本
-            response = response.strip()
-            self.logger.debug(f"原始LLM响应长度: {len(response)}")
-            
-            # 首先尝试提取<think>标签外的JSON
-            json_outside_think = None
-            if '<think>' in response and '</think>' in response:
-                # 提取<think>标签之后的内容
-                after_think = re.split(r'</think>', response, flags=re.IGNORECASE)
-                if len(after_think) > 1:
-                    post_think_content = after_think[-1].strip()
-                    self.logger.debug(f"<think>标签后的内容: {post_think_content[:200]}...")
-                    
-                    # 在<think>标签后查找JSON
-                    json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', post_think_content, re.DOTALL)
-                    if json_match:
-                        try:
-                            json_outside_think = json.loads(json_match.group())
-                            self.logger.debug("成功从<think>标签后提取JSON")
-                        except json.JSONDecodeError:
-                            pass
-            
-            # 如果在<think>标签外没找到JSON，尝试其他方法
-            if not json_outside_think:
-                # 方法1: 移除所有<think>内容后查找JSON
-                cleaned_response = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL | re.IGNORECASE)
-                cleaned_response = cleaned_response.strip()
-                
-                # 方法2: 查找最后一个完整的JSON对象
-                json_patterns = [
-                    r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',  # 完整的嵌套JSON
-                    r'```json\s*(\{.*?\})\s*```',        # Markdown代码块
-                    r'```\s*(\{.*?\})\s*```',            # 通用代码块
-                    r'\{.*?\}',                          # 简单JSON匹配
-                ]
-                
-                parsed_result = None
-                for pattern in json_patterns:
-                    matches = re.findall(pattern, cleaned_response, re.DOTALL | re.IGNORECASE)
-                    # 尝试从最后一个匹配开始（通常是最终答案）
-                    for match in reversed(matches):
-                        try:
-                            json_str = match[0] if isinstance(match, tuple) else match
-                            parsed_result = json.loads(json_str)
-                            self.logger.debug(f"成功解析JSON (模式匹配): {json_str[:100]}...")
-                            break
-                        except json.JSONDecodeError:
-                            continue
-                    if parsed_result:
-                        break
-                
-                if not parsed_result:
-                    # 方法3: 在原始响应中查找（包含<think>标签）
-                    for pattern in json_patterns:
-                        matches = re.findall(pattern, response, re.DOTALL | re.IGNORECASE)
-                        for match in reversed(matches):
-                            try:
-                                json_str = match[0] if isinstance(match, tuple) else match
-                                # 验证JSON不在<think>标签内
-                                if not re.search(r'<think>.*?' + re.escape(json_str) + r'.*?</think>', response, re.DOTALL | re.IGNORECASE):
-                                    parsed_result = json.loads(json_str)
-                                    self.logger.debug(f"成功解析JSON (原始响应): {json_str[:100]}...")
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-                        if parsed_result:
-                            break
-                
-                json_outside_think = parsed_result
-            
-            # 验证和补全解析结果
-            if json_outside_think:
-                # 确保所有必需字段存在
-                required_fields = {
-                    "risk_level": "Unknown" if language.startswith("en") else "未知",
+            # 提取JSON部分
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group()
+                return json.loads(json_str)
+            else:
+                # 如果无法解析JSON，返回默认格式
+                return {
+                    "risk_level": "未知",
                     "risk_score": 0,
                     "key_issues": [],
                     "suggestions": [],
-                    "detailed_analysis": ""
+                    "detailed_analysis": response
                 }
-                
-                for field, default_value in required_fields.items():
-                    if field not in json_outside_think:
-                        json_outside_think[field] = default_value
-                
-                # 确保风险分数是整数
-                if isinstance(json_outside_think.get("risk_score"), str):
-                    try:
-                        json_outside_think["risk_score"] = int(json_outside_think["risk_score"])
-                    except ValueError:
-                        json_outside_think["risk_score"] = 0
-                
-                # 规范化风险等级
-                if language.startswith("en"):
-                    risk_level_mapping = {"低": "Low", "中": "Medium", "高": "High", "低风险": "Low", "中风险": "Medium", "高风险": "High"}
-                    original_level = json_outside_think["risk_level"]
-                    json_outside_think["risk_level"] = risk_level_mapping.get(original_level, original_level)
-                
-                self.logger.info(f"成功解析风险分析结果: 风险等级={json_outside_think['risk_level']}, 分数={json_outside_think['risk_score']}")
-                return json_outside_think
-            
-            # 如果所有解析尝试都失败，返回默认结果
-            self.logger.warning(f"所有JSON解析尝试失败，响应内容预览: {response[:300]}...")
-            
-            # 尝试从响应中提取一些有用信息作为分析内容
-            analysis_text = response
-            if '<think>' in response:
-                # 提取思考过程作为详细分析
-                think_match = re.search(r'<think>(.*?)</think>', response, re.DOTALL | re.IGNORECASE)
-                if think_match:
-                    analysis_text = think_match.group(1).strip()
-            
-            default_message = "AI completed analysis but JSON parsing failed" if language.startswith("en") else "AI分析完成但JSON解析失败"
-            return {
-                "risk_level": "Unknown" if language.startswith("en") else "未知",
-                "risk_score": 50,  # 中等风险作为默认值
-                "key_issues": [default_message],
-                "suggestions": ["Please review the raw analysis output" if language.startswith("en") else "请查看原始分析输出"],
-                "detailed_analysis": analysis_text[:500] + "..." if len(analysis_text) > 500 else analysis_text
-            }
-            
         except Exception as e:
             self.logger.error(f"解析分析结果失败: {e}")
-            default_error_message = "Error parsing analysis result" if language.startswith("en") else "结果解析失败"
             return {
-                "risk_level": "Error" if language.startswith("en") else "解析错误",
+                "risk_level": "解析错误",
                 "risk_score": 0,
-                "key_issues": [default_error_message],
-                "suggestions": ["Please try again" if language.startswith("en") else "请重新分析"],
-                "detailed_analysis": str(e)
+                "key_issues": ["结果解析失败"],
+                "suggestions": ["请重新分析"],
+                "detailed_analysis": response
             }
-    
     def initialize_models(self) -> bool:
         """初始化所有模型"""
         self.logger.info("开始初始化AI模型...")

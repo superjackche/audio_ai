@@ -17,16 +17,15 @@ BASE_DIR = Path(__file__).parent.parent.absolute()
 # 模型配置
 MODEL_CONFIG = {
     "whisper_model": os.getenv("WHISPER_MODEL", "base"),  # 语音识别模型（支持多语言）
-    "llm_model": os.getenv("MODEL_NAME", "Qwen/Qwen3-0.6B-GPTQ-Int8"),  # Qwen3 0.6B GPTQ量化模型 - 更轻量级，适合性能有限的GPU
+    "llm_model": os.getenv("MODEL_NAME", "Qwen/Qwen3-0.6B"),  # Qwen3 0.6B 模型
     "device": "cuda" if torch.cuda.is_available() else "cpu",
-    "max_length": 2048,  # 最大长度，适合1.7B模型
-    "temperature": 0.2,  # 更低温度，提高政治敏感性检测的稳定性和一致性
+    "max_length": 1024,  # 减少最大长度，适合小模型
+    "temperature": 0.7,
     "trust_remote_code": True,  # Qwen需要trust_remote_code
     "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
     "low_cpu_mem_usage": True,
     "device_map": "auto" if torch.cuda.is_available() else None,
-    "load_in_8bit": False,  # GPTQ模型已经量化，不需要额外8bit量化
-    "use_fast_tokenizer": True,  # 使用快速tokenizer提升性能
+    "load_in_8bit": False,  # 小模型不需要量化
 }
 
 # 数据路径
@@ -40,7 +39,7 @@ DATA_PATHS = {
 
 # Web服务配置
 WEB_CONFIG = {
-    "host": "127.0.0.1",
+    "host": "0.0.0.0",
     "port": 8000,
     "reload": True,
 }
