@@ -11,21 +11,57 @@ os.environ['HF_ENDPOINT'] = os.getenv('HF_ENDPOINT', 'https://hf-mirror.com')
 os.environ['HUGGINGFACE_HUB_CACHE'] = os.getenv('HUGGINGFACE_HUB_CACHE', './models/cache')
 os.environ['HF_HOME'] = os.getenv('HF_HOME', './models/cache')
 
+# 导入性能优化配置
+try:
+    from .performance_optimization import get_production_config, UltraPerformanceOptimizer
+    
+    # 应用性能优化
+    optimizer = UltraPerformanceOptimizer()
+    optimizer.apply_all_optimizations()
+    PERFORMANCE_CONFIG = get_production_config()
+except ImportError:
+    PERFORMANCE_CONFIG = None
+
 # 项目根目录
 BASE_DIR = Path(__file__).parent.parent.absolute()
 
 # 模型配置
+_llm_model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-Omni-3B")  # 默认使用更快的3B模型
+
+# 动态配置：根据性能优化配置调整
+if PERFORMANCE_CONFIG:
+    optimal_config = PERFORMANCE_CONFIG["model_config"]["model_optimization"]
+    _llm_model_name = optimal_config["primary_model"]
+
 MODEL_CONFIG = {
-    "whisper_model": os.getenv("WHISPER_MODEL", "base"),  # 语音识别模型（支持多语言）
-    "llm_model": os.getenv("MODEL_NAME", "Qwen/Qwen3-0.6B"),  # Qwen3 0.6B 模型
-    "device": "cuda" if torch.cuda.is_available() else "cpu",
-    "max_length": 1024,  # 减少最大长度，适合小模型
-    "temperature": 0.7,
-    "trust_remote_code": True,  # Qwen需要trust_remote_code
-    "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
-    "low_cpu_mem_usage": True,
-    "device_map": "auto" if torch.cuda.is_available() else None,
-    "load_in_8bit": False,  # 小模型不需要量化
+    "default": {
+        "llm_model": _llm_model_name,
+        "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        "device": "cuda" if torch.cuda.is_available() else "cpu",
+        "max_length": 2048,
+        "temperature": 0.1,  # 更低温度提高一致性和速度
+        "trust_remote_code": True,
+        "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
+        "low_cpu_mem_usage": True,
+        "device_map": "auto" if torch.cuda.is_available() else None,
+        
+        # 性能优化配置
+        "load_in_4bit": True,  # 4bit量化加速
+        "bnb_4bit_compute_dtype": torch.float16,
+        "bnb_4bit_use_double_quant": True,
+        "bnb_4bit_quant_type": "nf4",
+        "use_flash_attention_2": True,
+        "attn_implementation": "flash_attention_2",
+        
+        # 推理优化
+        "max_new_tokens": 512,
+        "top_p": 0.9,
+        "top_k": 50,
+        "do_sample": True,
+        "use_cache": True,
+        "pad_token_id": 0,
+        "eos_token_id": 1,
+    }
 }
 
 # 数据路径
@@ -37,11 +73,12 @@ DATA_PATHS = {
     "logs_dir": BASE_DIR / "data" / "logs",
 }
 
-# Web服务配置
+# Web服务配置 - 仅支持HTTP
 WEB_CONFIG = {
-    "host": "0.0.0.0",
-    "port": 8000,
-    "reload": True,
+    "host": "0.0.0.0",  # 监听所有网络接口
+    "port": 8080,       # HTTP端口
+    "reload": False,    # 生产环境关闭热重载
+    "protocol": "http", # 明确指定HTTP协议
 }
 
 # 政治风险关键词配置

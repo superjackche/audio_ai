@@ -23,6 +23,8 @@
         </div>
     </nav>
 
+    <div id="critical-system-warnings" class="container mt-2"></div>
+
     <div class="container mt-4">
         <!-- 系统状态卡片 -->
         <div class="row mb-4">
@@ -123,47 +125,41 @@
                                 </div>                                <div id="recording-indicator" class="recording-indicator" style="display: none;">
                                     <div class="pulse-dot"></div>
                                     <span class="ms-2">正在录音中...</span>
-                                </div>                                <div id="recording-analysis-progress" class="mt-3" style="display: none;">
-                                    <div class="progress">
-                                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
-                                             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
-                                             style="width: 0%"></div>
-                                    </div>
-                                    <small class="text-muted mt-1 d-block" id="recording-progress-text">正在处理录音...</small>
+                                </div>                                <div id="realtime-result" class="mt-3"></div>
+                                <div id="recording-analysis-progress" class="progress mt-3" style="display: none;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
-                                <div id="realtime-result" class="mt-4"></div>
                             </div>
-                        </div>
-                    </div>
+                        </div>                    </div>
 
-                    <!-- 文件上传 -->
+                    <!-- 文件分析 -->
                     <div class="tab-pane fade" id="upload" role="tabpanel">
                         <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-upload me-2"></i>音频文件分析
-                                </h5>
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-server me-2"></i>服务器文件分析</h5>
+                                <button id="refresh-server-files" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-sync-alt me-1"></i> 刷新列表
+                                </button>
                             </div>
                             <div class="card-body">
-                                <div class="upload-area" id="upload-area">
-                                    <div class="text-center p-4">
-                                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                                        <p class="mb-2">拖拽音频文件到此处或点击选择</p>
-                                        <p class="text-muted small">支持 WAV, MP3, M4A, FLAC 格式</p>
-                                        <input type="file" id="audio-file" accept=".wav,.mp3,.m4a,.flac" style="display: none;">
-                                        <button class="btn btn-outline-primary" onclick="document.getElementById('audio-file').click()">
-                                            选择文件
-                                        </button>
-                                    </div>
-                                </div>                                <div id="upload-progress" class="mt-3" style="display: none;">
-                                    <div class="progress">
-                                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
-                                             style="width: 0%"></div>
-                                    </div>
-                                    <small class="text-muted mt-1 d-block" id="upload-progress-text">正在处理...</small>
+                                <div class="mb-3">                                <label for="server-audio-files-select" class="form-label">选择服务器上的音频文件:</label>
+                                    <select id="server-audio-files-select" class="form-select">
+                                        <option value="" selected disabled>请先刷新列表或等待加载...</option>
+                                    </select>
                                 </div>
-                                <div id="upload-result" class="mt-4"></div>
+                                <button id="analyze-server-file-btn" class="btn btn-primary w-100">
+                                    <i class="fas fa-play-circle me-2"></i>分析选定文件
+                                </button>
+                                
+                                <div id="server-file-analysis-status-area" style="display: none; margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;">
+                                    <h5 style="margin-bottom: 10px;">当前文件分析状态:</h5>
+                                    <div class="progress" style="height: 25px; margin-bottom: 15px; background-color: #e9ecef;">
+                                        <div id="server-file-analysis-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%; font-size: 0.9rem;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                    </div>
+                                    <div id="server-file-analysis-result-content" style="margin-top: 10px;">
+                                        <!-- Analysis results for the selected server file will be displayed here -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -196,48 +192,81 @@
                     </div>
 
                     <!-- 历史记录 -->
-                    <div class="tab-pane fade" id="history" role="tabpanel">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-history me-2"></i>分析历史记录
-                                </h5>
-                                <button id="refresh-history" class="btn btn-outline-secondary btn-sm">
-                                    <i class="fas fa-sync-alt me-1"></i>刷新
-                                </button>
+                    <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4><i class="fas fa-history me-2"></i>分析历史</h4>
+                            <button id="refresh-history" class="btn btn-outline-secondary">
+                                <i class="fas fa-sync-alt me-1"></i> 刷新历史
+                            </button>
+                        </div>
+                        <div id="analysis-history-list" class="list-group"></div>
+                        <p id="history-loading-message" class="text-center text-muted mt-3" style="display: none;">正在加载历史记录...</p>
+                    </div>
+
+                    <!-- 系统状态与日志 Tab -->
+                    <div class="tab-pane fade" id="system-status-log" role="tabpanel" aria-labelledby="system-status-log-tab">
+                        <h4><i class="fas fa-cogs me-2"></i>系统状态与日志</h4>
+                        <!-- 在这里可以添加更多系统状态信息或日志展示 -->
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">模块状态</div>
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            语音识别 (Whisper)
+                                            <span id="whisper-status" class="status-indicator status-offline"><small class="text-danger">未加载</small></span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            AI大模型 (LLM)
+                                            <span id="llm-status" class="status-indicator status-offline"><small class="text-danger">未加载</small></span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            录音功能
+                                            <span id="recording-status" class="status-indicator status-offline"><small class="text-danger">不可用</small></span>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <div id="history-content">
-                                    <div class="text-center text-muted">
-                                        <i class="fas fa-clock fa-2x mb-3"></i>
-                                        <p>暂无分析记录</p>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">系统信息</div>
+                                    <div class="card-body">
+                                        <p id="system-info-placeholder">更多系统信息将在这里展示。</p>
+                                        <!-- 例如服务器负载、内存使用等，如果后端支持 -->
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        <div class="mt-3">
+                            <h5>简易日志查看器 (前端)</h5>
+                            <div id="frontend-log-display" class="log-display bg-light p-2 border rounded" style="height: 200px; overflow-y: auto;">
+                                <small>前端日志将显示在此处...</small>
+                            </div>
+                        </div>
+                    </div>
+
+                </div> <!-- End Tab Content -->
+
+                <!-- Toast Container -->
+                <div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1055;"></div>
+
+                <!-- 结果详情 Modal -->
+                <div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">详细分析结果</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="modal-body-content">
+                                <!-- 动态内容 -->
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 分析结果模态框 -->
-    <div class="modal fade" id="result-modal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">详细分析结果</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="modal-body-content">
-                    <!-- 动态内容 -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/app.js"></script>

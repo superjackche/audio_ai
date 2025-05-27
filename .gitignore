@@ -1,6 +1,8 @@
 # Python
 __pycache__/
 *.py[cod]
+**/__pycache__/ # Ensure pycache is ignored everywhere
+*.pyc # Ensure .pyc files are ignored everywhere
 *$py.class
 *.so
 .Python
@@ -39,10 +41,16 @@ Thumbs.db
 
 # Model cache and downloads
 models/cache/
+models/Qwen*/
+models/whisper*/
 models/*.bin
 models/*.safetensors
 models/*.pt
 models/*.pth
+models/*.onnx
+models/*.model
+data/models/ # Add this line to ignore models in data/models
+server_audio_files/
 
 # Data files
 data/uploads/
@@ -52,6 +60,11 @@ data/logs/
 *.mp3
 *.m4a
 *.flac
+# Remove specific large data files if they were accidentally committed
+# data/train_dataset.csv
+# data/train_dataset.json
+# data/validation_dataset.csv
+# data/validation_dataset.json
 
 # Environment variables
 .env
@@ -89,3 +102,6 @@ celerybeat.pid
 .mypy_cache/
 .dmypy.json
 dmypy.json
+__pycache__/
+benchmark_results_*.json
+config/*.pem

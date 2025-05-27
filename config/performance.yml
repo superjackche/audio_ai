@@ -1,0 +1,348 @@
+# 🚀 AI语音政治风险监控系统 - 性能优化配置
+# 高级性能调优和资源管理
+
+performance:
+  # 🤖 AI模型优化
+  model_optimization:
+    # GPU加速配置
+    gpu:
+      enabled: true
+      device_ids: [0, 1]  # 支持多GPU
+      memory_fraction: 0.8  # GPU内存使用比例
+      allow_growth: true  # 动态内存分配
+      mixed_precision: true  # 混合精度训练
+      
+      # CUDA优化
+      cuda:
+        benchmark: true  # 启用cuDNN基准测试
+        deterministic: false  # 性能优先，不保证确定性
+        empty_cache_threshold: 0.5  # 内存清理阈值
+    
+    # 模型量化
+    quantization:
+      enabled: true
+      method: "dynamic"  # dynamic, static, qat
+      backend: "fbgemm"  # fbgemm, qnnpack
+      dtype: "qint8"
+      calibration_batches: 100
+    
+    # 模型并行
+    parallelism:
+      data_parallel: true
+      model_parallel: false
+      pipeline_parallel: false
+      gradient_checkpointing: true
+    
+    # 推理优化
+    inference:
+      batch_size: 4
+      max_sequence_length: 2048
+      beam_search_size: 5
+      temperature: 0.7
+      top_p: 0.9
+      num_return_sequences: 1
+      
+      # TensorRT优化 (NVIDIA GPU)
+      tensorrt:
+        enabled: false
+        precision: "fp16"
+        max_workspace_size: 2147483648  # 2GB
+        
+      # ONNX优化
+      onnx:
+        enabled: false
+        optimization_level: "all"
+        providers: ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+  # 🔄 异步处理优化
+  async_processing:
+    # 线程池配置
+    thread_pool:
+      max_workers: 8
+      thread_name_prefix: "audio-ai-worker"
+      
+    # 进程池配置  
+    process_pool:
+      max_workers: 4
+      maxtasksperchild: 100
+      
+    # 协程优化
+    asyncio:
+      event_loop_policy: "uvloop"  # 高性能事件循环
+      max_concurrent_tasks: 100
+      task_timeout_seconds: 300
+      
+    # 队列配置
+    queue:
+      maxsize: 1000
+      redis_queue:
+        max_connections: 20
+        connection_pool_kwargs:
+          max_connections: 50
+          retry_on_timeout: true
+
+  # 🗄️ 数据库优化
+  database:
+    # MongoDB优化
+    mongodb:
+      # 连接池
+      connection_pool:
+        min_pool_size: 5
+        max_pool_size: 50
+        max_idle_time_ms: 30000
+        
+      # 读写分离
+      read_preference: "secondaryPreferred"
+      write_concern:
+        w: 1
+        j: true
+        wtimeout: 10000
+        
+      # 索引优化
+      indexes:
+        background_building: true
+        sparse_indexes: true
+        compound_indexes: true
+        
+      # 聚合优化
+      aggregation:
+        allow_disk_use: true
+        cursor_batch_size: 1000
+        max_time_ms: 30000
+    
+    # Redis优化
+    redis:
+      # 连接池
+      connection_pool:
+        max_connections: 50
+        retry_on_timeout: true
+        health_check_interval: 30
+        
+      # 内存优化
+      memory:
+        maxmemory_policy: "allkeys-lru"
+        maxmemory: "512mb"
+        
+      # 持久化配置
+      persistence:
+        save_intervals: ["900 1", "300 10", "60 10000"]
+        appendonly: true
+        appendfsync: "everysec"
+
+  # 🌐 网络优化
+  networking:
+    # HTTP/HTTPS优化
+    http:
+      keep_alive: true
+      keep_alive_timeout: 65
+      max_keep_alive_requests: 1000
+      
+      # 压缩配置
+      compression:
+        enabled: true
+        level: 6
+        min_size: 1024
+        types: ["text/plain", "application/json", "text/html"]
+      
+      # 缓存配置
+      caching:
+        static_files_cache_age: 86400  # 1天
+        api_cache_age: 300  # 5分钟
+        browser_cache: true
+    
+    # TCP优化
+    tcp:
+      nodelay: true
+      keepalive: true
+      keepalive_idle: 600
+      keepalive_interval: 60
+      keepalive_count: 3
+      
+    # 负载均衡
+    load_balancing:
+      algorithm: "round_robin"  # round_robin, least_conn, ip_hash
+      health_check_interval: 30
+      fail_timeout: 30
+      max_fails: 3
+
+  # 💾 内存管理
+  memory:
+    # Python内存优化
+    python:
+      garbage_collection:
+        enabled: true
+        generation_thresholds: [700, 10, 10]
+        debug: false
+        
+      # 对象池
+      object_pooling:
+        enabled: true
+        max_pool_size: 1000
+        cleanup_interval: 300
+        
+    # 缓存策略
+    caching:
+      # 应用级缓存
+      application:
+        max_size: 1000
+        ttl_seconds: 3600
+        eviction_policy: "lru"
+        
+      # 模型缓存
+      model:
+        enabled: true
+        max_models: 3
+        unload_timeout: 1800  # 30分钟
+        
+      # 文件缓存
+      file:
+        enabled: true
+        max_size_mb: 1024
+        cleanup_age_hours: 24
+
+  # 📊 I/O优化
+  io:
+    # 文件I/O
+    file_io:
+      buffer_size: 65536  # 64KB
+      use_sendfile: true
+      direct_io: false
+      
+      # 异步文件操作
+      async_file_ops: true
+      max_concurrent_uploads: 10
+      
+    # 磁盘优化
+    disk:
+      # SSD优化
+      ssd_optimized: true
+      trim_enabled: true
+      
+      # 文件系统
+      filesystem: "ext4"  # ext4, xfs, btrfs
+      mount_options: "noatime,nodiratime"
+      
+    # 网络I/O
+    network_io:
+      socket_buffer_size: 262144  # 256KB
+      tcp_window_scaling: true
+      tcp_timestamps: true
+
+  # 🔧 系统级优化
+  system:
+    # CPU优化
+    cpu:
+      # CPU亲和性
+      affinity:
+        enabled: true
+        worker_cpu_binding: true
+        isolation_cpus: []
+        
+      # 调度器
+      scheduler:
+        policy: "SCHED_NORMAL"
+        nice_level: 0
+        rt_priority: 0
+        
+      # 频率调节
+      governor: "performance"  # performance, powersave, ondemand
+      
+    # 内核参数优化
+    kernel:
+      # 网络参数
+      net:
+        core_rmem_max: 134217728
+        core_wmem_max: 134217728
+        ipv4_tcp_rmem: "4096 87380 134217728"
+        ipv4_tcp_wmem: "4096 65536 134217728"
+        ipv4_tcp_congestion_control: "bbr"
+        
+      # 虚拟内存
+      vm:
+        swappiness: 10
+        dirty_ratio: 15
+        dirty_background_ratio: 5
+        vfs_cache_pressure: 50
+        
+      # 文件描述符
+      fs:
+        file_max: 1048576
+        inotify_max_user_watches: 524288
+
+  # 📈 监控和分析
+  monitoring:
+    # 性能指标收集
+    metrics:
+      enabled: true
+      collection_interval: 10  # 秒
+      retention_days: 30
+      
+      # 关键指标
+      key_metrics:
+        - "cpu_usage"
+        - "memory_usage"
+        - "gpu_usage"
+        - "disk_io"
+        - "network_io"
+        - "request_latency"
+        - "queue_size"
+        - "error_rate"
+        
+    # 性能分析
+    profiling:
+      enabled: false  # 生产环境通常关闭
+      profiler: "py-spy"  # py-spy, cProfile, line_profiler
+      sampling_rate: 100  # Hz
+      duration_seconds: 60
+      
+    # 自动调优
+    auto_tuning:
+      enabled: true
+      adaptation_interval: 3600  # 1小时
+      min_adjustment_threshold: 0.1
+      max_adjustment_factor: 1.5
+
+# 🎯 环境特定配置
+environments:
+  development:
+    debug_mode: true
+    hot_reload: true
+    detailed_logging: true
+    performance_monitoring: false
+    
+  testing:
+    debug_mode: false
+    mock_external_services: true
+    performance_monitoring: true
+    load_testing: true
+    
+  production:
+    debug_mode: false
+    optimize_for_latency: true
+    optimize_for_throughput: true
+    performance_monitoring: true
+    auto_scaling: true
+
+# 🚀 自动优化配置
+auto_optimization:
+  # 自适应批处理
+  adaptive_batching:
+    enabled: true
+    min_batch_size: 1
+    max_batch_size: 16
+    target_latency_ms: 2000
+    
+  # 动态资源分配
+  dynamic_scaling:
+    enabled: true
+    metrics: ["cpu_usage", "memory_usage", "queue_size"]
+    scale_up_threshold: 0.8
+    scale_down_threshold: 0.3
+    cooldown_period: 300  # 5分钟
+    
+  # 智能缓存
+  intelligent_caching:
+    enabled: true
+    cache_hit_ratio_target: 0.8
+    auto_eviction: true
+    predictive_preloading: true

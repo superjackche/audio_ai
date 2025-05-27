@@ -1,38 +1,184 @@
-# 核心依赖
-torch>=2.0.0
-transformers>=4.30.0
-accelerate>=0.20.0
-datasets>=2.14.0
-peft>=0.4.0
-bitsandbytes>=0.41.0
+# ========================================
+# 🎯 AI语音政治风险监测系统 - 依赖包清单 🚀
+# ========================================
+# 
+# 📖 说明: 本系统基于最新AI技术栈构建
+# 🎯 目标: 提供高精度、低延迟的语音风险监测
+# 🔒 特点: 本地部署、隐私保护、开箱即用
+# 
+# ========================================
 
-# GPTQ量化支持
-auto-gptq>=0.4.0
-optimum>=1.12.0
+# 🔥 核心AI框架 - 深度学习基础
+torch>=2.0.0                    # 🧠 PyTorch深度学习框架 | Meta开源AI引擎
+torchvision>=0.15.0             # 👁️ 计算机视觉支持 | 多模态分析必备
+torchaudio>=2.0.0               # 🎵 音频处理支持 | 音频AI的基石
+transformers>=4.30.0            # 🤖 HuggingFace模型库 | 最强NLP工具集
+accelerate>=0.20.0              # ⚡ 模型加速库 | 性能优化利器
+datasets>=2.14.0                # 📊 数据集处理 | 数据科学必备
+peft>=0.4.0                     # 🔧 参数高效微调 | 模型定制神器
+bitsandbytes>=0.41.0            # 💾 内存优化 | 大模型部署救星
 
-# 语音处理
-openai-whisper
-librosa>=0.10.0
-soundfile>=0.12.0
-pyaudio>=0.2.11
+# 🚀 模型优化与量化 - 性能提升
+auto-gptq>=0.4.0                # 🗜️ GPTQ量化支持 | 模型压缩黑科技
+optimum>=1.12.0                 # 🎯 模型优化工具 | Intel/NVIDIA优化
+einops>=0.7.0                   # 🔄 张量操作 | 优雅的数学表达
+flash-attn>=2.0.0               # ⚡ 注意力机制加速 | 超快Transformer
 
-# 中文处理
-jieba>=0.42.1
+# 🎙️ 语音识别与处理 - 音频AI核心
+openai-whisper>=20231117        # 🎤 OpenAI Whisper | 业界最强语音识别
+librosa>=0.10.0                 # 🎵 音频信号处理 | 音频分析瑞士军刀
+soundfile>=0.12.0               # 📁 音频文件读写 | 格式支持专家
+pyaudio>=0.2.11                 # 🎙️ 实时音频录制 | 麦克风接口神器
+scipy>=1.10.0                   # 🔬 科学计算 | 数学处理基础库
+webrtcvad>=2.0.10               # 🔊 语音活动检测 | Google WebRTC技术
+ffmpeg-python>=0.2.0            # 🎬 音视频处理 | 格式转换利器
+mutagen>=1.47.0                 # 🏷️ 音频元数据 | 文件信息读取
 
-# Web框架
-fastapi>=0.100.0
-uvicorn>=0.22.0
-python-multipart>=0.0.6
-jinja2>=3.1.2
-aiofiles>=23.1.0
+# 🈶 中文自然语言处理 - 中文AI专家
+jieba>=0.42.1                   # ✂️ 中文分词 | 最流行中文分词器
+pkuseg>=0.0.25                  # 🎯 北大分词器 | 学术级精度
+zhconv>=1.4.3                   # 🔄 简繁体转换 | 中文处理必备
+langdetect>=1.0.9               # 🌍 语言检测 | 多语言智能识别
+pypinyin>=0.49.0                # 🀄 汉字转拼音 | 中文音标处理
+opencc>=1.1.6                   # 🔄 中文转换 | 开放中文转换
 
-# 数据处理
-pandas>=2.0.0
-numpy>=1.24.0
-scikit-learn>=1.3.0
+# 🌐 Web框架与服务 - 现代Web应用
+fastapi>=0.104.0                # ⚡ 现代Web框架 | 高性能异步API框架
+uvicorn[standard]>=0.24.0       # 🚀 ASGI服务器 | 生产级异步服务器
+python-multipart>=0.0.6         # 📤 文件上传支持 | 表单数据处理
+jinja2>=3.1.2                   # 📄 模板引擎 | 动态HTML生成
+aiofiles>=23.1.0                # 📁 异步文件操作 | 高效IO处理
+starlette>=0.27.0               # 🌟 Web工具包 | FastAPI核心组件
+httpx>=0.25.0                   # 🌐 HTTP客户端 | 现代请求库
+websockets>=11.0.0              # 🔌 WebSocket支持 | 实时通信
+sse-starlette>=1.6.0            # 📡 服务器推送事件 | 实时数据流
 
-# 其他工具
-python-dotenv>=1.0.0
-tqdm>=4.65.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
+# 📊 数据处理与分析 - 科学计算栈
+pandas>=2.0.0                   # 📈 数据分析 | 数据科学瑞士军刀
+numpy>=1.24.0                   # 🔢 数值计算 | 科学计算基础
+scikit-learn>=1.3.0             # 🧮 机器学习 | 经典ML算法库
+matplotlib>=3.7.0               # 📊 数据可视化 | Python绘图标准
+seaborn>=0.12.0                 # 🎨 统计可视化 | 美观统计图表
+plotly>=5.15.0                  # 📈 交互式图表 | 现代可视化
+wordcloud>=1.9.0                # ☁️ 词云生成 | 文本可视化
+networkx>=3.1.0                 # 🕸️ 图网络分析 | 关系图分析
+
+# 🛠️ 开发工具与辅助 - 开发体验优化
+python-dotenv>=1.0.0            # ⚙️ 环境变量管理 | 配置文件加载
+tqdm>=4.65.0                    # 📊 进度条显示 | 美观进度提示
+colorama>=0.4.6                 # 🌈 彩色终端输出 | 跨平台颜色支持
+rich>=13.5.0                    # 🎨 富文本终端 | 现代命令行界面
+click>=8.1.0                    # 🖱️ 命令行工具 | CLI应用框架
+pyyaml>=6.0                     # 📄 YAML配置文件 | 人性化配置格式
+toml>=0.10.2                    # 📋 TOML配置文件 | 现代配置标准
+python-magic>=0.4.27           # 🔮 文件类型检测 | 智能格式识别
+watchdog>=3.0.0                # 👀 文件监控 | 自动重载支持
+
+# 🔐 安全与认证 - 数据保护
+cryptography>=41.0.0            # 🔒 加密库 | 企业级加密算法
+passlib>=1.7.4                 # 🔑 密码处理 | 安全哈希算法
+python-jose>=3.3.0             # 🎫 JWT令牌 | 无状态认证
+bcrypt>=4.0.0                   # 🛡️ 密码哈希 | 防彩虹表攻击
+pyotp>=2.9.0                    # 🔢 二次验证 | TOTP动态密码
+
+# 📝 日志与监控 - 系统观测
+loguru>=0.7.0                   # 📋 优雅的日志库 | 现代日志方案
+psutil>=5.9.0                   # 💻 系统监控 | 性能指标采集
+gpustat>=1.1.0                  # 🖥️ GPU状态监控 | 显卡使用情况
+py-cpuinfo>=9.0.0              # 🔧 CPU信息获取 | 硬件信息检测
+nvidia-ml-py>=12.535.0          # 🎮 NVIDIA监控 | GPU深度监控
+GPUtil>=1.4.0                   # 🎯 GPU工具库 | GPU监控和管理
+memory-profiler>=0.61.0         # 🧠 内存分析器 | 内存使用监控
+
+# 🗄️ 数据存储 - 持久化解决方案
+sqlite3                         # 💾 轻量级数据库 | Python内置
+sqlalchemy>=2.0.0              # 🗃️ ORM数据库工具 | 数据库抽象层
+alembic>=1.12.0                 # 🔄 数据库迁移 | 版本控制工具
+redis>=5.0.0                    # 🚀 内存数据库 | 高性能缓存
+pymongo>=4.5.0                  # 🍃 MongoDB驱动 | 文档数据库
+
+# 🧪 测试框架 - 质量保证
+pytest>=7.4.0                  # 🧪 测试框架 | Python测试标准
+pytest-asyncio>=0.21.0         # ⚡ 异步测试支持 | async/await测试
+pytest-cov>=4.1.0              # 📊 测试覆盖率 | 代码质量度量
+pytest-mock>=3.12.0            # 🎭 模拟对象 | 单元测试利器
+httpx>=0.25.0                   # 🌐 HTTP测试客户端 | API测试工具
+
+# 📦 打包与部署 - 生产环境
+gunicorn>=21.2.0                # 🏭 生产WSGI服务器 | 高性能部署
+docker>=6.1.0                   # 🐳 容器化支持 | 现代部署方式
+supervisor>=4.2.0               # 👮 进程管理 | 服务监控
+fabric>=3.2.0                   # 🚀 自动化部署 | 远程执行工具
+
+# 🎨 前端资源处理 - 多媒体支持
+pillow>=10.0.0                  # 🖼️ 图像处理 | Python图像库
+opencv-python>=4.8.0           # 👁️ 计算机视觉 | 图像视觉处理
+imageio>=2.31.0                # 📷 图像IO | 多格式支持
+moviepy>=1.0.3                 # 🎬 视频处理 | 音视频编辑
+
+# 🤖 AI增强包 - 扩展功能
+sentence-transformers>=2.2.0   # 🧠 句子嵌入 | 语义相似度
+faiss-cpu>=1.7.4               # 🔍 向量检索 | 高效相似搜索
+langchain>=0.1.0               # 🔗 LLM应用框架 | AI应用开发
+chromadb>=0.4.0                # 📚 向量数据库 | 嵌入式存储
+
+# ========================================
+# 📋 版本兼容性说明
+# ========================================
+# 🐍 Python: >= 3.8 (推荐 3.10+)
+# 🔥 CUDA: >= 11.8 (GPU加速，可选)
+# 💾 总安装大小: 10-15GB (包含模型文件)
+# 🖥️ 推荐内存: 16GB+ (大模型运行)
+# 💿 推荐硬盘: 50GB+ (模型缓存)
+# 
+# ========================================
+# 🚀 快速安装指南
+# ========================================
+# 
+# 📦 基础安装:
+# pip install -r requirements.txt
+#
+# 🛠️ 开发环境:
+# pip install -r requirements.txt
+# pip install -r requirements-dev.txt
+#
+# 🌈 Conda安装:
+# conda env create -f environment.yml
+# conda activate audio-ai
+#
+# ========================================
+# 🎯 性能优化建议
+# ========================================
+# 
+# 🚀 GPU加速:
+# - 安装CUDA 11.8+
+# - pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# 💾 内存优化:
+# - 使用量化模型减少显存占用
+# - 启用梯度检查点降低内存需求
+#
+# ⚡ 推理加速:
+# - 使用TensorRT进行模型优化
+# - 启用混合精度训练
+#
+# ========================================
+# 🆘 常见问题解决
+# ========================================
+#
+# ❌ CUDA Out of Memory:
+# - 减少batch_size
+# - 使用CPU模式
+# - 启用模型量化
+#
+# 🐌 推理速度慢:
+# - 检查GPU驱动版本
+# - 使用flash-attention
+# - 考虑模型量化
+#
+# 📥 下载失败:
+# - 设置镜像源: HF_ENDPOINT=https://hf-mirror.com
+# - 使用代理: export https_proxy=...
+# - 手动下载模型文件
+#
+# ========================================
