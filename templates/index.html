@@ -38,10 +38,9 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-3">
-                                <div class="text-center">
-                                    <div class="status-indicator" id="whisper-status">
+                                <div class="text-center">                                    <div class="status-indicator" id="whisper-status">
                                         <i class="fas fa-microphone fa-2x"></i>
-                                        <p class="mt-2 mb-0">语音识别</p>
+                                        <p class="mt-2 mb-0">SenseVoice识别</p>
                                         <small class="text-muted">加载中...</small>
                                     </div>
                                 </div>
@@ -54,12 +53,11 @@
                                         <small class="text-muted">加载中...</small>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="col-md-3">
+                            </div>                            <div class="col-md-3">
                                 <div class="text-center">
                                     <div class="status-indicator" id="recording-status">
-                                        <i class="fas fa-record-vinyl fa-2x"></i>
-                                        <p class="mt-2 mb-0">录音功能</p>
+                                        <i class="fas fa-bullhorn fa-2x"></i>
+                                        <p class="mt-2 mb-0">音频监控接入</p>
                                         <small class="text-muted">检查中...</small>
                                     </div>
                                 </div>
@@ -82,10 +80,9 @@
         <!-- 功能选项卡 -->
         <div class="row">
             <div class="col-md-12">
-                <ul class="nav nav-tabs" id="main-tabs" role="tablist">
-                    <li class="nav-item" role="presentation">
+                <ul class="nav nav-tabs" id="main-tabs" role="tablist">                    <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="realtime-tab" data-bs-toggle="tab" data-bs-target="#realtime" type="button" role="tab">
-                            <i class="fas fa-microphone me-2"></i>实时监测
+                            <i class="fas fa-bullhorn me-2"></i>学校音频监控
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -105,32 +102,107 @@
                     </li>
                 </ul>
 
-                <div class="tab-content mt-3" id="main-tab-content">
-                    <!-- 实时监测 -->
+                <div class="tab-content mt-3" id="main-tab-content">                    <!-- 学校音频监控 -->
                     <div class="tab-pane fade show active" id="realtime" role="tabpanel">
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="mb-0">
-                                    <i class="fas fa-microphone me-2"></i>实时语音监测
+                                    <i class="fas fa-bullhorn me-2"></i>学校音频监控接入点状态
                                 </h5>
                             </div>
-                            <div class="card-body text-center">
-                                <div class="recording-controls mb-4">
-                                    <button id="start-recording" class="btn btn-success btn-lg me-3">
-                                        <i class="fas fa-play me-2"></i>开始录音
-                                    </button>
-                                    <button id="stop-recording" class="btn btn-danger btn-lg" disabled>
-                                        <i class="fas fa-stop me-2"></i>停止录音
-                                    </button>
-                                </div>                                <div id="recording-indicator" class="recording-indicator" style="display: none;">
-                                    <div class="pulse-dot"></div>
-                                    <span class="ms-2">正在录音中...</span>
-                                </div>                                <div id="realtime-result" class="mt-3"></div>
-                                <div id="recording-analysis-progress" class="progress mt-3" style="display: none;">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="card-body">
+                                <!-- 监控点状态网格 -->
+                                <div class="row mb-4">
+                                    <div class="col-md-4">
+                                        <div class="monitoring-point-card p-3 border rounded">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-microphone-alt fa-lg me-2 text-success"></i>
+                                                <strong>教学楼A座</strong>
+                                                <span class="badge bg-success ms-auto">在线</span>
+                                            </div>
+                                            <div class="text-muted small">
+                                                <div>接入点: 8个教室</div>
+                                                <div>监控状态: 正常运行</div>
+                                                <div>最后检测: 刚刚</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="monitoring-point-card p-3 border rounded">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-microphone-alt fa-lg me-2 text-success"></i>
+                                                <strong>教学楼B座</strong>
+                                                <span class="badge bg-success ms-auto">在线</span>
+                                            </div>
+                                            <div class="text-muted small">
+                                                <div>接入点: 6个教室</div>
+                                                <div>监控状态: 正常运行</div>
+                                                <div>最后检测: 2分钟前</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="monitoring-point-card p-3 border rounded">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-microphone-alt fa-lg me-2 text-warning"></i>
+                                                <strong>学术报告厅</strong>
+                                                <span class="badge bg-warning ms-auto">检查中</span>
+                                            </div>
+                                            <div class="text-muted small">
+                                                <div>接入点: 主会场+2分会场</div>
+                                                <div>监控状态: 系统自检</div>
+                                                <div>最后检测: 5分钟前</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <!-- 实时监控状态指示器 -->
+                                <div class="monitoring-status-panel p-4 bg-light rounded">
+                                    <div class="row text-center">
+                                        <div class="col-md-3">
+                                            <div class="monitoring-indicator">
+                                                <div class="indicator-dot bg-success blinking"></div>
+                                                <div class="mt-2">
+                                                    <strong>17</strong>
+                                                    <div class="text-muted small">活跃监控点</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="monitoring-indicator">
+                                                <div class="indicator-dot bg-info blinking"></div>
+                                                <div class="mt-2">
+                                                    <strong>24h</strong>
+                                                    <div class="text-muted small">连续监控</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="monitoring-indicator">
+                                                <div class="indicator-dot bg-warning slow-blink"></div>
+                                                <div class="mt-2">
+                                                    <strong>AI分析</strong>
+                                                    <div class="text-muted small">实时处理中</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="monitoring-indicator">
+                                                <div class="indicator-dot bg-success"></div>
+                                                <div class="mt-2">
+                                                    <strong>安全</strong>
+                                                    <div class="text-muted small">系统状态</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="realtime-result" class="mt-3"></div>
                             </div>
-                        </div>                    </div>
+                        </div>
+                    </div>
 
                     <!-- 文件分析 -->
                     <div class="tab-pane fade" id="upload" role="tabpanel">

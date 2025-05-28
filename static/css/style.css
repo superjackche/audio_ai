@@ -55,6 +55,32 @@ body {
     animation: pulse 1.5s infinite;
 }
 
+/* 监控系统脉冲动画 */
+.recording-pulse {
+    width: 12px;
+    height: 12px;
+    background-color: var(--success-color);
+    border-radius: 50%;
+    animation: monitor-pulse 2s infinite;
+}
+
+@keyframes monitor-pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7);
+    }
+    
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(25, 135, 84, 0);
+    }
+    
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+    }
+}
+
 @keyframes pulse {
     0% {
         transform: scale(0.95);
@@ -215,7 +241,80 @@ body {
     to { transform: rotate(360deg); }
 }
 
-/* 响应式设计 */
+/* 进度条动画和效果 */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 进度条平滑过渡 */
+.progress-bar {
+    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+/* 进度条完成状态的特殊效果 */
+.progress-bar.bg-success {
+    animation: successPulse 0.5s ease-in-out;
+}
+
+@keyframes successPulse {
+    0% {
+        box-shadow: 0 0 0 rgba(40, 167, 69, 0);
+    }
+    50% {
+        box-shadow: 0 0 15px rgba(40, 167, 69, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+/* 状态消息的动画效果 */
+#server-file-status-message {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+#server-file-status-message i.fa-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* 进度条状态区域的改进 */
+#server-file-analysis-status-area {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ffffff, #f8f9fa);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease-in-out;
+}
+
+#server-file-analysis-status-area:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* 进度条容器改进 */
+.progress {
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress .progress-bar {
+    border-radius: 25px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* 响应式设计改进 */
 @media (max-width: 768px) {
     .container {
         padding: 0 15px;
@@ -230,6 +329,19 @@ body {
         width: 60px;
         height: 60px;
         font-size: 1.2em;
+    }
+    
+    #server-file-analysis-status-area {
+        margin: 10px;
+        padding: 10px;
+    }
+    
+    .progress {
+        height: 20px !important;
+    }
+    
+    .progress .progress-bar {
+        font-size: 0.8rem;
     }
 }
 
@@ -305,4 +417,109 @@ body {
 @keyframes wave {
     0%, 100% { transform: scaleY(0.5); }
     50% { transform: scaleY(1); }
+}
+
+/* 监控事件样式 */
+.monitoring-event {
+    border-left: 4px solid;
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.monitoring-event.alert-success {
+    border-left-color: var(--success-color);
+}
+
+.monitoring-event.alert-warning {
+    border-left-color: var(--warning-color);
+}
+
+.monitoring-event.alert-danger {
+    border-left-color: var(--danger-color);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 教室选择模态框样式 */
+.classroom-item {
+    transition: all 0.3s ease;
+}
+
+.classroom-item:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+    border-color: var(--primary-color);
+}
+
+.classroom-item:focus {
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* 监控点卡片样式 */
+.monitoring-point-card {
+    background: #fff;
+    transition: all 0.3s ease;
+    border: 1px solid #e0e0e0 !important;
+}
+
+.monitoring-point-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+/* 监控状态面板 */
+.monitoring-status-panel {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
+    border: 1px solid #dee2e6;
+}
+
+/* 监控指示器 */
+.monitoring-indicator {
+    position: relative;
+}
+
+.indicator-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* 闪烁动画 */
+.blinking {
+    animation: blink 1.5s infinite;
+}
+
+.slow-blink {
+    animation: blink 3s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+/* 监控点状态徽章 */
+.badge {
+    font-size: 0.75rem;
+}
+
+/* 监控界面响应式 */
+@media (max-width: 768px) {
+    .monitoring-point-card {
+        margin-bottom: 1rem;
+    }
+    
+    .monitoring-indicator {
+        margin-bottom: 1.5rem;
+    }
 }

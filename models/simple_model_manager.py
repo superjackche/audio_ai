@@ -14,6 +14,7 @@ import librosa
 import numpy as np
 import json
 import re
+import glob
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
@@ -35,6 +36,16 @@ from transformers import (
     pipeline
 )
 
+# FunASR 相关导入
+try:
+    from funasr import AutoModel
+    FUNASR_AVAILABLE = True
+    print(f"✅ FunASR库导入成功，AutoModel可用")
+except ImportError as e:
+    FUNASR_AVAILABLE = False
+    print(f"❌ FunASR库导入失败: {e}")
+    print("   💡 请确认FunASR已正确安装: pip install funasr")
+
 from config.settings import MODEL_CONFIG, DATA_PATHS
 
 class SimpleModelManager:
@@ -42,6 +53,10 @@ class SimpleModelManager:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.logger.info(f"DATA_PATHS['models_dir'] is configured as: {DATA_PATHS['models_dir']}")
+        
+        # 显示FunASR状态
+        print(f"🔧 FunASR状态检查: {'✅ 可用' if FUNASR_AVAILABLE else '❌ 不可用'}")
         
         # Whisper模型用于语音转文字
         self.whisper_pipeline: Optional[Any] = None
@@ -55,9 +70,82 @@ class SimpleModelManager:
         # 简单缓存
         self.inference_cache = {}
         
-        # 模型配置
-        self.whisper_model_name = "openai/whisper-large-v3"
-        self.llm_model_name = "Qwen/Qwen2.5-7B-Instruct"  # 恢复使用7B模型
+        # 模型配置 - 只使用SenseVoice和LLM
+        # 使用SenseVoice - 专为中文优化的轻量级ASR模型（仅50MB）
+        self.whisper_model_name = "iic/SenseVoiceSmall"
+        self.use_sensevoice = True  # 只使用SenseVoice，不使用Whisper
+        self.skip_whisper = True    # 跳过Whisper下载
+        
+        # 检查多个可能的本地LLM模型路径，包括HuggingFace缓存
+        cache_dir = DATA_PATHS['models_dir'] / 'cache'
+        possible_paths = [
+            DATA_PATHS['models_dir'] / "Qwen2.5-7B-Instruct",
+            DATA_PATHS['models_dir'] / "Qwen--Qwen2.5-7B-Instruct", 
+            Path("/new_disk/cwh/models/Qwen2.5-7B-Instruct"),
+            Path("/new_disk/cwh/models/Qwen--Qwen2.5-7B-Instruct"),
+            # 检查HuggingFace缓存目录
+            cache_dir / "models--Qwen--Qwen2.5-7B-Instruct" / "snapshots",
+        ]
+        
+        self.llm_model_path = None
+        self.llm_model_name = "Qwen/Qwen2.5-7B-Instruct"  # 用于在线下载的fallback
+        
+        # 寻找本地模型
+        print("🔍 检查本地LLM模型...")
+        for path in possible_paths:
+            print(f"  检查路径: {path}")
+            if path.exists() and path.is_dir():
+                # 对于HuggingFace缓存目录，需要进入snapshots子目录
+                if "snapshots" in str(path):
+                    # 查找snapshots目录下的具体版本
+                    snapshot_dirs = [d for d in path.iterdir() if d.is_dir()]
+                    if snapshot_dirs:
+                        # 使用最新的snapshot
+                        latest_snapshot = max(snapshot_dirs, key=lambda x: x.stat().st_mtime)
+                        path = latest_snapshot
+                        print(f"    发现缓存快照: {latest_snapshot.name}")
+                
+                # 检查是否包含必要的模型文件
+                required_files = ["config.json"]
+                
+                # 检查模型权重文件：支持多种格式
+                has_single_model = any((path / f).exists() for f in ["model.safetensors", "pytorch_model.bin"])
+                has_sharded_safetensors = any((path / f"model-{i:05d}-of-*.safetensors").exists() for i in range(1, 10))
+                has_sharded_pytorch = any((path / f"pytorch_model-{i:05d}-of-*.bin").exists() for i in range(1, 10))
+                
+                # 新增：检查分片命名格式如 model-00001-of-00004.safetensors
+                sharded_files = glob.glob(str(path / "model-*-of-*.safetensors"))
+                has_new_sharded_format = len(sharded_files) > 0
+                
+                has_model_files = has_single_model or has_sharded_safetensors or has_sharded_pytorch or has_new_sharded_format
+                has_tokenizer = any((path / f).exists() for f in ["tokenizer.json", "tokenizer_config.json"])
+                
+                # 调试信息
+                print(f"    模型文件检查: 单文件={has_single_model}, 旧分片={has_sharded_safetensors or has_sharded_pytorch}, 新分片={has_new_sharded_format}")
+                print(f"    tokenizer检查: {has_tokenizer}")
+                if has_new_sharded_format:
+                    print(f"    发现分片文件: {len(sharded_files)}个")
+                
+                if all((path / f).exists() for f in required_files) and has_model_files and has_tokenizer:
+                    self.llm_model_path = path
+                    print(f"  ✅ 找到完整的本地LLM模型: {path}")
+                    break
+                else:
+                    print(f"  ⚠️  路径存在但模型文件不完整: {path}")
+                    print(f"    缺少: config.json={not all((path / f).exists() for f in required_files)}, model_files={not has_model_files}, tokenizer={not has_tokenizer}")
+                    # 调试：列出目录内容
+                    try:
+                        files = list(path.iterdir())[:10]  # 只显示前10个文件
+                        print(f"    目录内容示例: {[f.name for f in files]}")
+                    except:
+                        pass
+            else:
+                print(f"  ❌ 路径不存在: {path}")
+        
+        if not self.llm_model_path:
+            print(f"  📥 未找到本地LLM模型，将使用已缓存的模型: {self.llm_model_name}")
+            print(f"  💡 缓存目录: {cache_dir}")
+            # 即使没有找到完整路径，也可以使用模型名称，让transformers自动找缓存
         
         self.logger.info(f"简化模型管理器初始化完成，设备: {self.device}")
     
@@ -72,101 +160,231 @@ class SimpleModelManager:
             return "cpu"
     
     def load_whisper_model(self) -> bool:
-        """快速加载Whisper模型"""
+        """快速加载SenseVoice语音识别模型 - 不使用Whisper"""
         try:
-            self.logger.info(f"正在加载Whisper模型: {self.whisper_model_name}")
+            # 强制检查FunASR状态
+            print(f"🔍 检查FunASR状态: FUNASR_AVAILABLE = {FUNASR_AVAILABLE}")
             
-            # 简单快速的加载方式
-            self.whisper_pipeline = pipeline(
-                "automatic-speech-recognition",
+            if not FUNASR_AVAILABLE:
+                print("❌ FunASR库不可用，无法使用SenseVoice")
+                print("   💡 请安装FunASR: pip install funasr")
+                return False
+            
+            print(f"🎙️  加载SenseVoice中文语音识别模型: {self.whisper_model_name}")
+            print("   ⚡ SenseVoice模型仅50MB，专为中文优化，加载超快！")
+            
+            self.logger.info(f"正在使用FunASR加载SenseVoice模型: {self.whisper_model_name}")
+            
+            # 使用FunASR的AutoModel加载SenseVoice
+            # 根据文档，需要设置正确的参数
+            model_kwargs = {
+                "trust_remote_code": True,
+                "device": self.device,
+                "disable_update": True  # 禁用更新检查，加快启动
+            }
+            
+            # 添加镜像源环境变量支持
+            if 'HF_ENDPOINT' in os.environ:
+                model_kwargs["hub_base_url"] = os.environ['HF_ENDPOINT']
+            
+            self.whisper_pipeline = AutoModel(
                 model=self.whisper_model_name,
-                device=self.device,
-                torch_dtype=torch.float16 if self.device.startswith("cuda") else torch.float32,
-                return_timestamps=True
+                **model_kwargs
             )
             
-            self.logger.info("Whisper模型加载成功")
+            print("✅ SenseVoice中文语音识别模型加载成功")
+            self.logger.info("SenseVoice模型加载成功")
             return True
             
         except Exception as e:
-            self.logger.error(f"Whisper模型加载失败: {e}")
+            print(f"❌ SenseVoice模型加载失败: {e}")
+            self.logger.error(f"SenseVoice模型加载失败: {e}")
             return False
     
     def load_llm_model(self) -> bool:
         """快速加载LLM模型"""
         try:
-            self.logger.info(f"正在加载LLM模型: {self.llm_model_name}")
-            
+            if self.llm_model_path:
+                # 使用本地模型
+                print(f"📂 使用本地LLM模型: {self.llm_model_path}")
+                self.logger.info(f"从本地路径加载LLM模型: {self.llm_model_path}")
+                model_path_str = str(self.llm_model_path)
+                use_local_only = True
+            else:
+                # 使用在线模型
+                print(f"📥 需要下载LLM模型: {self.llm_model_name}")
+                print("   📦 模型大小约13GB，这将需要较长时间...")
+                print("   💡 建议：将本地7B模型放置在以下任一路径：")
+                print("      - /new_disk/cwh/models/Qwen2.5-7B-Instruct/")
+                print("      - /new_disk/cwh/audio_ai/models/Qwen2.5-7B-Instruct/")
+                print("   ⏳ 开始下载模型文件...")
+                self.logger.info(f"从网络下载LLM模型: {self.llm_model_name}")
+                model_path_str = self.llm_model_name
+                use_local_only = False
+
             # 加载tokenizer
-            self.llm_tokenizer = AutoTokenizer.from_pretrained(
-                self.llm_model_name,
-                trust_remote_code=True,
-                cache_dir=str(DATA_PATHS['models_dir'] / 'cache')
-            )
+            print("🔧 加载Tokenizer...")
+            tokenizer_kwargs = {
+                "trust_remote_code": True,
+                "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
+            }
+            if use_local_only:
+                tokenizer_kwargs["local_files_only"] = True
+            else:
+                # 设置镜像源和下载配置
+                tokenizer_kwargs["local_files_only"] = False
+                tokenizer_kwargs["resume_download"] = True
+                print("   🌐 使用hf-mirror镜像源下载...")
+            
+            try:
+                self.llm_tokenizer = AutoTokenizer.from_pretrained(
+                    model_path_str,
+                    **tokenizer_kwargs
+                )
+                print("✅ Tokenizer加载成功")
+            except Exception as e:
+                if not use_local_only:
+                    print(f"   ⚠️  Tokenizer下载可能较慢，请耐心等待...")
+                    print(f"   🔄 重试中... (错误: {e})")
+                    # 重试一次，增加超时时间
+                    import time
+                    time.sleep(2)
+                    self.llm_tokenizer = AutoTokenizer.from_pretrained(
+                        model_path_str,
+                        **tokenizer_kwargs
+                    )
+                    print("✅ Tokenizer下载并加载成功")
+                else:
+                    raise e
             
             # 加载模型
+            print("🚀 加载LLM模型权重...")
+            if not use_local_only:
+                print("   ⏳ 正在下载模型文件，请耐心等待...")
+                print("   📊 下载进度将在命令行显示...")
+            
             model_kwargs = {
                 "trust_remote_code": True,
                 "torch_dtype": torch.float16 if self.device.startswith("cuda") else torch.float32,
                 "low_cpu_mem_usage": True,
-                "cache_dir": str(DATA_PATHS['models_dir'] / 'cache')
+                "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
             }
             
-            # 设备映射
+            if use_local_only:
+                model_kwargs["local_files_only"] = True
+            else:
+                model_kwargs["local_files_only"] = False
+                model_kwargs["resume_download"] = True
+                # 强制使用镜像源
+                model_kwargs["proxies"] = None
+            
             if self.device.startswith("cuda"):
                 model_kwargs["device_map"] = "auto"
             
-            self.llm_model = AutoModelForCausalLM.from_pretrained(
-                self.llm_model_name,
-                **model_kwargs
-            )
+            try:
+                self.llm_model = AutoModelForCausalLM.from_pretrained(
+                    model_path_str,
+                    **model_kwargs
+                )
+            except Exception as e:
+                if not use_local_only and "offline" not in str(e).lower():
+                    print(f"   ⚠️  模型下载可能较慢，请耐心等待...")
+                    print(f"   🔄 重试下载... (错误: {e})")
+                    # 重试一次，可能是网络问题
+                    import time
+                    time.sleep(5)
+                    self.llm_model = AutoModelForCausalLM.from_pretrained(
+                        model_path_str,
+                        **model_kwargs
+                    )
+                else:
+                    raise e
             
             self.llm_model.eval()
             
-            self.logger.info("LLM模型加载成功")
+            print("✅ LLM模型加载成功")
+            if not use_local_only:
+                print(f"   💾 模型已缓存到: {DATA_PATHS['models_dir']}/cache")
+            self.logger.info(f"LLM模型加载成功: {model_path_str}")
             return True
             
-        except Exception as e:
-            self.logger.error(f"LLM模型加载失败: {e}")
+        except Exception as e: 
+            print(f"❌ LLM模型加载失败: {e}")
+            print("   💡 可能的解决方案：")
+            print("      1. 检查网络连接")
+            print("      2. 检查磁盘空间 (需要约20GB)")
+            print("      3. 使用本地模型文件")
+            print("      4. 尝试使用VPN或更换网络")
+            self.logger.error(f"LLM模型加载失败: {e}", exc_info=True)
             return False
     
     def initialize_models(self) -> bool:
-        """快速初始化所有模型"""
+        """快速初始化所有模型 - 只加载SenseVoice和LLM"""
+        print("\n🤖 开始初始化AI模型...")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         self.logger.info("开始初始化模型...")
         
-        # 加载Whisper
+        # 加载SenseVoice
+        print("🎙️  正在加载SenseVoice语音识别模型...")
         if not self.load_whisper_model():
+            print("❌ SenseVoice模型初始化失败")
             return False
         
         # 加载LLM
+        print("\n🧠 正在加载LLM文本分析模型...")
         if not self.load_llm_model():
+            print("❌ LLM模型初始化失败")
             return False
         
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🎉 所有AI模型初始化成功！")
+        print("   ✅ SenseVoice中文语音识别模型已就绪")
+        print("   ✅ Qwen2.5-7B文本分析模型已就绪")
         self.logger.info("模型初始化成功")
         return True
     
     def transcribe_audio(self, audio_path: str) -> Dict[str, Any]:
-        """语音转文字"""
+        """语音转文字，使用SenseVoice进行中英文混合识别"""
+        # 懒加载检查
         if not self.whisper_pipeline:
-            raise RuntimeError("Whisper模型未加载")
+            print("🎙️  首次使用，正在加载SenseVoice模型...")
+            if not self.load_whisper_model():
+                raise RuntimeError("语音识别模型加载失败")
         
         try:
             start_time = time.time()
             
-            # 使用pipeline处理音频
-            result = self.whisper_pipeline(audio_path)
+            # 使用FunASR的SenseVoice模型进行识别
+            self.logger.info("使用SenseVoice模型进行语音识别...")
             
+            # SenseVoice使用FunASR接口
+            result = self.whisper_pipeline.generate(
+                input=audio_path,
+                cache={},
+                language="auto",  # 自动检测语言，支持中英混合
+                use_itn=True,     # 使用逆文本标准化
+                batch_size_s=60  # 批处理大小
+            )
+            
+            # 处理FunASR的返回结果
+            if isinstance(result, list) and len(result) > 0:
+                transcription = result[0].get("text", "").strip()
+            else:
+                transcription = ""
+                    
             transcribe_time = time.time() - start_time
             
-            # 提取文本
-            transcription = result.get("text", "").strip()
+            # 检测语言
+            detected_language = self._detect_language(transcription)
             
             self.logger.info(f"语音转文字完成，耗时: {transcribe_time:.2f}秒")
+            self.logger.info(f"检测语言: {detected_language}, 转录长度: {len(transcription)}字符")
             
             return {
                 "text": transcription,
-                "language": "zh",
-                "processing_time": transcribe_time
+                "language": detected_language,
+                "processing_time": transcribe_time,
+                "method": "sensevoice"
             }
             
         except Exception as e:
@@ -175,8 +393,11 @@ class SimpleModelManager:
     
     def analyze_text_risk(self, text: str) -> Dict[str, Any]:
         """文本风险分析"""
+        # 懒加载检查
         if not self.llm_model or not self.llm_tokenizer:
-            raise RuntimeError("LLM模型未加载")
+            print("🧠 首次使用，正在加载LLM模型...")
+            if not self.load_llm_model():
+                raise RuntimeError("LLM模型加载失败")
         
         try:
             start_time = time.time()
@@ -371,3 +592,35 @@ class SimpleModelManager:
             result["risk_score"] = 20
         
         return result
+    
+    def _detect_language(self, text: str) -> str:
+        """检测文本语言"""
+        try:
+            if not text or not text.strip():
+                return "unknown"
+            
+            # 简单的中英文检测
+            chinese_chars = len([c for c in text if '\u4e00' <= c <= '\u9fff'])
+            english_chars = len([c for c in text if c.isalpha() and c.isascii()])
+            total_chars = len(text.strip())
+            
+            if total_chars == 0:
+                return "unknown"
+            
+            chinese_ratio = chinese_chars / total_chars
+            english_ratio = english_chars / total_chars
+            
+            # 判断主要语言
+            if chinese_ratio > 0.3:
+                if english_ratio > 0.2:
+                    return "zh-en"  # 中英混合
+                else:
+                    return "zh"     # 主要是中文
+            elif english_ratio > 0.5:
+                return "en"         # 主要是英文
+            else:
+                return "mixed"      # 其他混合情况
+                
+        except Exception as e:
+            self.logger.warning(f"语言检测失败: {e}")
+            return "unknown"

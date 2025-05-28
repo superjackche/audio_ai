@@ -2,9 +2,11 @@
 
 class AudioMonitorApp {
     constructor() {
-        this.isRecording = false;
+        this.isMonitoring = false; // 改为监控状态
         this.analysisHistory = [];
         this.currentModal = null;
+        this.currentClassroom = null;
+        this.monitoringInterval = null;
         
         this.init();
     }
@@ -21,14 +23,11 @@ class AudioMonitorApp {
         
         // 定期检查系统状态
         setInterval(() => this.checkSystemStatus(), 30000);
-    }
-
-    bindEvents() {
-        // 录音控制
-        document.getElementById('start-recording').addEventListener('click', () => this.startRecording());
-        document.getElementById('stop-recording').addEventListener('click', () => this.stopRecording());
-          // 服务器文件分析
-        document.getElementById('refresh-server-files').addEventListener('click', () => this.loadServerFiles()); // Corrected ID
+    }    bindEvents() {
+        // 移除录音相关按钮事件绑定，因为已改为纯展示的监控界面
+        
+        // 服务器文件分析
+        document.getElementById('refresh-server-files').addEventListener('click', () => this.loadServerFiles());
         document.getElementById('analyze-server-file-btn').addEventListener('click', () => this.analyzeSelectedServerFile());
 
         // 文本分析
@@ -76,20 +75,19 @@ class AudioMonitorApp {
             this.displayCriticalWarnings({ system_online: false }); // Show server offline warning
         }
     }    updateStatusIndicators(status) {
-        // 更新Whisper状态
-        const whisperStatus = document.getElementById('whisper-status');
-        this.updateStatusElement(whisperStatus, status.whisper_model_loaded, '语音识别', '已就绪', '未加载');
+        // 更新SenseVoice状态
+        const speechStatus = document.getElementById('whisper-status');
+        this.updateStatusElement(speechStatus, status.speech_model_loaded, 'SenseVoice语音识别', '已就绪', '未加载');
         
         // 更新LLM状态
         const llmStatus = document.getElementById('llm-status');
         this.updateStatusElement(llmStatus, status.llm_model_loaded, 'AI大模型', '已就绪', '未加载');
         
-        // 更新录音状态
+        // 更新监控状态 (改为固定显示可用状态)
         const recordingStatus = document.getElementById('recording-status');
-        this.updateStatusElement(recordingStatus, status.recording_available, '录音功能', '可用', '不可用');
+        this.updateStatusElement(recordingStatus, true, '音频监控接入', '系统就绪', '离线');
         
-        // 更新录音按钮状态
-        document.getElementById('start-recording').disabled = !status.recording_available || this.isRecording;
+        // 移除按钮状态更新，因为已经删除了录音按钮
     }
 
     updateStatusElement(element, isOnline, feature, onlineText, offlineText) {
@@ -97,96 +95,21 @@ class AudioMonitorApp {
         const small = element.querySelector('small');
         small.textContent = isOnline ? onlineText : offlineText;
         small.className = isOnline ? 'text-success' : 'text-danger';
-    }
-
-    updateSystemStatusText(status) {
+    }    updateSystemStatusText(status) {
         const statusText = document.getElementById('system-status');
-        if (status.whisper_model_loaded && status.llm_model_loaded) {
+        // 修复字段名不匹配问题：使用 speech_model_loaded 而不是 whisper_model_loaded
+        if (status.speech_model_loaded && status.llm_model_loaded) {
             statusText.innerHTML = '<i class="fas fa-circle text-success"></i> 系统运行正常';
-        } else if (status.whisper_model_loaded || status.llm_model_loaded) {
+        } else if (status.speech_model_loaded || status.llm_model_loaded) {
             statusText.innerHTML = '<i class="fas fa-circle text-warning"></i> 部分功能可用';
         } else {
             statusText.innerHTML = '<i class="fas fa-circle text-danger"></i> 系统初始化中';
         }
-    }    async startRecording() {
-        try {
-            const startButton = document.getElementById('start-recording');
-            const stopButton = document.getElementById('stop-recording');
-            
-            // 禁用开始按钮，防止重复点击
-            startButton.disabled = true;
-            startButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>启动中...';
-            
-            const response = await fetch('/api/start-recording', { method: 'POST' });
-            const result = await response.json();
-            
-            if (response.ok) {
-                this.isRecording = true;
-                startButton.style.display = 'none';
-                stopButton.disabled = false;
-                stopButton.style.display = 'inline-block';
-                document.getElementById('recording-indicator').style.display = 'flex';
-                
-                this.showSuccess('录音已开始');
-                
-                // 清空之前的结果
-                document.getElementById('realtime-result').innerHTML = '';
-            } else {
-                this.showError(result.detail || '录音启动失败');
-                // 恢复按钮状态
-                startButton.disabled = false;
-                startButton.innerHTML = '<i class="fas fa-microphone me-2"></i>开始录音';
-            }
-        } catch (error) {
-            console.error('开始录音失败:', error);
-            this.showError('录音启动失败，请检查麦克风权限');
-            
-            // 恢复按钮状态
-            const startButton = document.getElementById('start-recording');
-            startButton.disabled = false;
-            startButton.innerHTML = '<i class="fas fa-microphone me-2"></i>开始录音';
-        }
-    }    async stopRecording() {
-        try {
-            const startButton = document.getElementById('start-recording');
-            const stopButton = document.getElementById('stop-recording');
-            
-            // 禁用停止按钮，防止重复点击
-            stopButton.disabled = true;
-            stopButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>停止中...';
-            
-            const response = await fetch('/api/stop-recording', { method: 'POST' });
-            const result = await response.json();
-            
-            if (response.ok) {
-                this.isRecording = false;
-                startButton.disabled = false;
-                startButton.style.display = 'inline-block';
-                startButton.innerHTML = '<i class="fas fa-microphone me-2"></i>开始录音';
-                stopButton.disabled = true;
-                stopButton.style.display = 'none';
-                document.getElementById('recording-indicator').style.display = 'none';
-                
-                this.showSuccess('录音已停止');
-                
-                // 处理实时结果
-                this.displayRealtimeResult(result);
-            } else {
-                this.showError(result.detail || '录音停止失败');
-                // 恢复按钮状态
-                stopButton.disabled = false;
-                stopButton.innerHTML = '<i class="fas fa-stop me-2"></i>停止录音';
-            }
-        } catch (error) {
-            console.error('停止录音失败:', error);
-            this.showError('录音停止失败');
-            
-            // 恢复按钮状态
-            const stopButton = document.getElementById('stop-recording');
-            stopButton.disabled = false;
-            stopButton.innerHTML = '<i class="fas fa-stop me-2"></i>停止录音';
-        }
-    }    displayRealtimeResult(result) {
+    }// 学校音频监控系统（纯展示界面，无实际录音功能）
+    // 这些函数已被移除，因为新的监控界面是纯展示性的
+
+    // 显示实时分析结果
+    displayRealtimeResult(result) {
         const resultContainer = document.getElementById('realtime-result');
         
         // 清空当前结果
@@ -370,15 +293,15 @@ class AudioMonitorApp {
         progressBar.textContent = '0%';
         
         const resultContent = document.getElementById('server-file-analysis-result-content');
-        resultContent.innerHTML = '<div class="text-muted">正在准备分析...</div>';
-
-        try {
-            const formData = new FormData();
-            formData.append('filename', selectedFile);
-
+        resultContent.innerHTML = '<div class="text-muted">正在准备分析...</div>';        try {
             const response = await fetch('/api/analyze-server-file', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: selectedFile
+                })
             });
             
             // Before parsing JSON, check if response is ok and content-type is application/json
@@ -426,16 +349,36 @@ class AudioMonitorApp {
         this.log(`开始轮询任务状态: ${taskId} for ${filename}`);
         const startTime = Date.now();
         const maxDuration = 300 * 1000; // 5 minutes timeout for polling
-        const pollInterval = 3000; // Poll every 3 seconds
+        const pollInterval = 2000; // 更频繁的轮询，每2秒检查一次
+          // 进度阶段定义 - 优化时间分配
+        const progressStages = [
+            { percentage: 8, message: '正在初始化任务...', duration: 3000 },
+            { percentage: 18, message: '正在加载音频文件...', duration: 8000 },
+            { percentage: 30, message: '正在预处理音频...', duration: 12000 },
+            { percentage: 55, message: '正在进行语音识别...', duration: 25000 },
+            { percentage: 75, message: '正在分析文本内容...', duration: 15000 },
+            { percentage: 90, message: '正在生成风险评估...', duration: 8000 },
+            { percentage: 98, message: '正在整理分析结果...', duration: 4000 }
+        ];
+        
+        let currentStageIndex = 0;
+        let simulatedProgress = 0;
+        let lastProgressUpdate = startTime;
+        let stageStartTime = startTime;
 
         // Update UI to show processing started for server file
         const resultContent = document.getElementById('server-file-analysis-result-content');
         if (resultContent) {
             resultContent.innerHTML = ''; // Clear previous results
         }
-        this.updateServerFileProgressBar(0, `正在处理文件: ${filename}...`);
-          const intervalId = setInterval(async () => {
-            if (Date.now() - startTime > maxDuration) {
+        
+        // 立即显示第一个阶段
+        this.updateServerFileProgressBar(progressStages[0].percentage, progressStages[0].message);
+        
+        const intervalId = setInterval(async () => {
+            const elapsedTime = Date.now() - startTime;
+            
+            if (elapsedTime > maxDuration) {
                 clearInterval(intervalId);
                 this.showError(`轮询任务 ${taskId} 超时。`);
                 this.updateServerFileProgressBar(100, `处理超时: ${filename}`);
@@ -451,24 +394,71 @@ class AudioMonitorApp {
                         clearInterval(intervalId);
                         this.showError(`获取任务状态失败: ${response.statusText}`);
                         this.updateServerFileProgressBar(100, `处理失败: ${filename}`);
-                        this.updateButtonState('analyze-server-file-btn', false, '<i class="fas fa-play-circle me-2"></i>分析选定文件');
-                    } else {
-                        this.log(`任务 ${taskId} 状态暂不可用 (404)，将继续轮询...`);
-                        // Update progress bar to show it's still working but waiting
-                        const elapsedPercentage = Math.min(90, ((Date.now() - startTime) / (maxDuration/2)) * 100); // Cap at 90% while waiting
-                        this.updateServerFileProgressBar(elapsedPercentage, `正在处理: ${filename} (等待服务器响应...)`);
+                        this.updateButtonState('analyze-server-file-btn', false, '<i class="fas fa-play-circle me-2"></i>分析选定文件');                    } else {
+                        // 任务还没开始，智能显示初始化进度
+                        if (elapsedTime < 5000) {
+                            // 前5秒显示任务初始化
+                            const initProgress = Math.min(8, (elapsedTime / 5000) * 8);
+                            this.updateServerFileProgressBar(initProgress, `正在初始化分析任务 ${filename}...`);
+                        } else if (elapsedTime < 15000) {
+                            // 5-15秒显示文件加载
+                            const loadProgress = 8 + Math.min(10, ((elapsedTime - 5000) / 10000) * 10);
+                            this.updateServerFileProgressBar(loadProgress, `正在准备音频文件 ${filename}...`);
+                        } else {
+                            // 15秒后显示等待服务器响应
+                            this.updateServerFileProgressBar(18, `正在等待服务器响应...`);
+                        }
                     }
                     return;
                 }
 
                 const task = await response.json();
-                this.log(`任务 ${taskId} 状态: ${task.status}`);                if (task.status === 'PROCESSING' || task.status === 'QUEUED') {
-                    // Update progress bar - make it dynamic or a generic "processing" message
-                    const elapsedPercentage = Math.min(90, ((Date.now() - startTime) / (maxDuration/2)) * 100);
-                    this.updateServerFileProgressBar(elapsedPercentage, `正在处理: ${filename} (状态: ${task.status})...`);
-                } else if (task.status === 'COMPLETED') {
+                this.log(`任务 ${taskId} 状态: ${task.status}`);
+                  if (task.status === 'processing' || task.status === 'pending') {
+                    // 智能进度计算算法
+                    const currentTime = Date.now();
+                    const timeSinceStageStart = currentTime - stageStartTime;
+                    const currentStage = progressStages[currentStageIndex];
+                    
+                    // 检查是否应该进入下一个阶段
+                    if (currentStageIndex < progressStages.length - 1) {
+                        const expectedStageEnd = stageStartTime + currentStage.duration;
+                        
+                        if (currentTime >= expectedStageEnd) {
+                            // 进入下一个阶段
+                            currentStageIndex++;
+                            stageStartTime = currentTime;
+                            this.log(`进入阶段 ${currentStageIndex + 1}: ${progressStages[currentStageIndex].message}`);
+                        }
+                    }
+                    
+                    // 计算当前阶段内的进度
+                    const stageProgress = Math.min(1, timeSinceStageStart / progressStages[currentStageIndex].duration);
+                    
+                    // 计算总体进度
+                    const prevStagePercentage = currentStageIndex > 0 ? progressStages[currentStageIndex - 1].percentage : 0;
+                    const currentStagePercentage = progressStages[currentStageIndex].percentage;
+                    const stageRange = currentStagePercentage - prevStagePercentage;
+                    
+                    // 使用缓动函数使进度更平滑
+                    const easedProgress = this.easeOutCubic(stageProgress);
+                    simulatedProgress = prevStagePercentage + (easedProgress * stageRange);
+                    
+                    // 确保进度不会倒退
+                    simulatedProgress = Math.max(simulatedProgress, simulatedProgress);
+                    
+                    // 添加小幅随机波动，使进度看起来更真实
+                    const randomVariation = (Math.random() - 0.5) * 0.5; // ±0.25%
+                    const displayProgress = Math.min(97, Math.max(simulatedProgress + randomVariation, simulatedProgress - 1));
+                    
+                    this.updateServerFileProgressBar(
+                        displayProgress,
+                        progressStages[currentStageIndex].message
+                    );
+                } else if (task.status === 'completed') {
                     clearInterval(intervalId);
-                    this.updateServerFileProgressBar(100, `处理完成: ${filename}`);
+                    // 快速完成最后的进度
+                    this.updateServerFileProgressBar(100, `分析完成: ${filename}`);
                     this.showToast(`文件 ${filename} 分析完成。`);
                     // The result from the task should be in task.result
                     // Display the result in the server file analysis result content area
@@ -477,20 +467,36 @@ class AudioMonitorApp {
                     // Optionally, refresh history and statistics
                     this.loadHistory();
                     this.loadStatistics();
-                } else if (task.status === 'FAILED') {
+                } else if (task.status === 'failed') {
                     clearInterval(intervalId);
                     this.showError(`文件 ${filename} 分析失败: ${task.error || '未知错误'}`);
                     this.updateServerFileProgressBar(100, `处理失败: ${filename}`);
                     this.updateButtonState('analyze-server-file-btn', false, '<i class="fas fa-play-circle me-2"></i>分析选定文件');
-                }
-            } catch (error) {
+                }            } catch (error) {
                 // Log network errors or JSON parsing errors during polling
                 console.error('轮询任务状态时出错:', error);
-                // Don't necessarily stop polling for all errors, could be transient network issues
-                // but if it persists, the timeout will catch it.
+                
+                // 智能网络错误处理
+                const networkRetryMessage = this.getNetworkRetryMessage(error);
+                
+                // 在网络错误时，保持当前进度但显示重连状态
+                if (currentStageIndex < progressStages.length - 1) {
+                    // 保持当前进度，但添加网络状态指示
+                    const currentProgress = Math.max(simulatedProgress, progressStages[currentStageIndex].percentage);
+                    this.updateServerFileProgressBar(
+                        currentProgress,
+                        `${progressStages[currentStageIndex].message} ${networkRetryMessage}`
+                    );
+                } else {
+                    // 如果已经是最后阶段，显示即将完成但网络重连中
+                    this.updateServerFileProgressBar(
+                        95,
+                        `即将完成... ${networkRetryMessage}`
+                    );
+                }
             }
         }, pollInterval);
-    }    async analyzeText() {
+    }async analyzeText() {
         const text = document.getElementById('text-input').value.trim();
         
         if (!text) {
@@ -549,11 +555,14 @@ class AudioMonitorApp {
                     // 隐藏进度条
                     setTimeout(() => {
                         progressContainer.style.display = 'none';
-                    }, 1000);
-                }
+                    }, 1000);                }
                 
                 this.showSuccess('文本分析完成');
                 this.displayTextAnalysisResult(result, resultContainer);
+                
+                // 自动刷新历史记录和统计信息
+                this.loadHistory();
+                this.loadStatistics();
             } else {
                 this.showError(result.detail || '文本分析失败');
                 if (progressContainer) {
@@ -716,16 +725,25 @@ class AudioMonitorApp {
                             <small class="text-muted ms-2">评分: ${risk.risk_score}/100</small>
                         </div>
                     `;
-                }
-
-                // 显示处理信息
+                }                // 显示处理信息
                 if (item.processing_info) {
+                    let processingInfoText = `
+                        文件: ${item.original_filename || '未知文件'}<br>
+                        处理方法: ${item.processing_info.processing_method || '未知方法'}<br>
+                        文本长度: ${item.processing_info.text_length || 0} 字符
+                    `;
+                    
+                    // 添加音频时长显示
+                    if (item.processing_info.audio_duration !== undefined && item.processing_info.audio_duration !== null) {
+                        const durationMinutes = Math.floor(item.processing_info.audio_duration / 60);
+                        const durationSeconds = Math.floor(item.processing_info.audio_duration % 60);
+                        processingInfoText += `<br>音频时长: ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+                    }
+                    
                     cardContent += `
                         <p class="card-text">
                             <small class="text-muted">
-                                文件: ${item.original_filename || '未知文件'}<br>
-                                处理方法: ${item.processing_info.processing_method || '未知方法'}<br>
-                                文本长度: ${item.processing_info.text_length || 0} 字符
+                                ${processingInfoText}
                             </small>
                         </p>
                     `;
@@ -801,9 +819,7 @@ class AudioMonitorApp {
         setTimeout(() => {
             toastContainer.removeChild(toast);
         }, 5000);
-    }
-
-    displayCriticalWarnings(status) {
+    }    displayCriticalWarnings(status) {
         const warningContainer = document.getElementById('critical-system-warnings'); // Corrected ID
         if (!warningContainer) {
             this.log("Critical warning container 'critical-system-warnings' not found.");
@@ -818,7 +834,8 @@ class AudioMonitorApp {
             warningContainer.appendChild(warning);
         }
         
-        if (!status.whisper_model_loaded) {
+        // 修复字段名不匹配问题：使用 speech_model_loaded 而不是 whisper_model_loaded
+        if (!status.speech_model_loaded) {
             const warning = document.createElement('div');
             warning.className = 'alert alert-warning';
             warning.textContent = '语音识别模型未加载';
@@ -882,22 +899,6 @@ class AudioMonitorApp {
             console.error('获取详细分析结果失败:', error);
             this.showError('获取详细分析结果失败');
         }    }
-
-    updateServerFileProgressBar(percentage, message = '') {
-        const progressBar = document.getElementById('server-file-analysis-progress-bar');
-        if (progressBar) {
-            progressBar.style.width = `${percentage}%`;
-            progressBar.setAttribute('aria-valuenow', percentage);
-            progressBar.textContent = `${percentage}%`;
-            
-            if (message) {
-                // 在进度条上显示消息
-                progressBar.title = message;
-            }
-        } else {
-            this.log(`Server file progress bar not found.`);
-        }
-    }
 
     displayServerFileAnalysisResult(result) {
         const resultContent = document.getElementById('server-file-analysis-result-content');
@@ -981,6 +982,43 @@ class AudioMonitorApp {
                         ).join('')}
                     </div>
                 </div>
+            `;        }
+        
+        // 显示处理信息（包括音频时长）
+        if (result.processing_info) {
+            const info = result.processing_info;
+            cardContent += `
+                <div class="mb-3">
+                    <h6 class="text-info">
+                        <i class="fas fa-info-circle me-2"></i>处理信息
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                文本长度：${info.text_length || 0} 字符<br>
+                                处理方法：${info.processing_method || '未知'}
+                            </small>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">
+            `;
+            
+            // 添加音频时长显示
+            if (info.audio_duration !== undefined && info.audio_duration !== null) {
+                const durationMinutes = Math.floor(info.audio_duration / 60);
+                const durationSeconds = Math.floor(info.audio_duration % 60);
+                cardContent += `音频时长：${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}<br>`;
+            }
+            
+            if (info.total_time) {
+                cardContent += `处理时间：${info.total_time.toFixed(2)} 秒`;
+            }
+            
+            cardContent += `
+                            </small>
+                        </div>
+                    </div>
+                </div>
             `;
         }
         
@@ -1027,9 +1065,7 @@ class AudioMonitorApp {
             }
         } else {            this.log(`Button with ID '${buttonId}' not found.`);
         }
-    }
-
-    // 专门用于服务器文件分析的进度条更新
+    }    // 专门用于服务器文件分析的进度条更新 - 优化版
     updateServerFileProgressBar(percentage, message = '') {
         const statusArea = document.getElementById('server-file-analysis-status-area');
         const progressBar = document.getElementById('server-file-analysis-progress-bar');
@@ -1038,14 +1074,73 @@ class AudioMonitorApp {
             // 显示状态区域
             statusArea.style.display = 'block';
             
-            // 更新进度条
-            progressBar.style.width = `${percentage}%`;
-            progressBar.setAttribute('aria-valuenow', percentage);
-            progressBar.textContent = `${percentage}%`;
+            // 添加平滑动画效果
+            progressBar.style.transition = 'width 0.3s ease-in-out';
             
-            // 如果有消息，可以在这里显示
+            // 根据进度状态设置不同的颜色和样式
+            progressBar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
+            if (percentage >= 100) {
+                progressBar.classList.add('bg-success');
+                progressBar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+            } else if (percentage >= 80) {
+                progressBar.classList.add('bg-warning');
+            } else {
+                // 保持默认的蓝色，确保动画效果
+                if (!progressBar.classList.contains('progress-bar-animated')) {
+                    progressBar.classList.add('progress-bar-animated', 'progress-bar-striped');
+                }
+            }
+            
+            // 更新进度条宽度和值
+            const roundedPercentage = Math.round(percentage);
+            progressBar.style.width = `${roundedPercentage}%`;
+            progressBar.setAttribute('aria-valuenow', roundedPercentage);
+            
+            // 进度条文本显示优化
+            if (roundedPercentage < 100) {
+                progressBar.textContent = `${roundedPercentage}%`;
+            } else {
+                progressBar.textContent = '完成';
+            }
+            
+            // 状态消息显示和动画
             if (message) {
-                this.log(`Progress: ${message}`);
+                // 查找或创建状态消息元素
+                let statusMessage = document.getElementById('server-file-status-message');
+                if (!statusMessage) {
+                    statusMessage = document.createElement('div');
+                    statusMessage.id = 'server-file-status-message';
+                    statusMessage.className = 'text-muted small mt-2 fade-in';
+                    statusMessage.style.transition = 'opacity 0.3s ease-in-out';
+                    statusArea.appendChild(statusMessage);
+                }
+                
+                // 添加状态指示图标
+                let icon = 'fas fa-spinner fa-spin';
+                if (percentage >= 100) {
+                    icon = 'fas fa-check-circle text-success';
+                } else if (message.includes('失败') || message.includes('错误') || message.includes('超时')) {
+                    icon = 'fas fa-exclamation-triangle text-warning';
+                } else if (message.includes('网络重连')) {
+                    icon = 'fas fa-wifi text-warning';
+                }
+                
+                statusMessage.innerHTML = `<i class="${icon} me-1"></i>${message}`;
+                statusMessage.style.opacity = '1';
+                this.log(`Progress: ${roundedPercentage}% - ${message}`);
+            }
+            
+            // 添加进度完成时的特殊效果
+            if (percentage >= 100) {
+                setTimeout(() => {
+                    if (progressBar.classList.contains('bg-success')) {
+                        // 添加一个短暂的闪烁效果表示完成
+                        progressBar.style.boxShadow = '0 0 10px rgba(40, 167, 69, 0.5)';
+                        setTimeout(() => {
+                            progressBar.style.boxShadow = '';
+                        }, 500);
+                    }
+                }, 100);
             }
         } else {
             this.log('服务器文件分析进度条元素未找到');
@@ -1162,9 +1257,7 @@ class AudioMonitorApp {
                 });
                 html += '</ul></div>';
             }
-        }
-
-        // 处理信息
+        }        // 处理信息
         if (result.processing_info) {
             const info = result.processing_info;
             html += `<div class="mb-3">
@@ -1173,14 +1266,48 @@ class AudioMonitorApp {
                 <p><strong>处理方法:</strong> ${info.processing_method || '未知'}</p>
             `;
             
+            // 添加音频时长显示
+            if (info.audio_duration !== undefined && info.audio_duration !== null) {
+                const durationMinutes = Math.floor(info.audio_duration / 60);
+                const durationSeconds = Math.floor(info.audio_duration % 60);
+                html += `<p><strong>音频时长:</strong> ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')} (${info.audio_duration.toFixed(2)} 秒)</p>`;
+            }
+            
             if (info.total_time) {
                 html += `<p><strong>处理时间:</strong> ${info.total_time.toFixed(2)} 秒</p>`;
             }
             html += '</div>';
-        }
-
-        html += '</div>';
+        }        html += '</div>';
         return html;
+    }
+
+    // 缓动函数：平滑的立方缓出效果
+    easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }    // 防抖函数：防止进度更新过于频繁
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // 获取网络重试消息
+    getNetworkRetryMessage(error) {
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            return '(网络连接中断，正在重试...)';
+        } else if (error.message.includes('timeout')) {
+            return '(请求超时，正在重连...)';
+        } else if (error.message.includes('404')) {
+            return '(任务准备中...)';
+        } else {
+            return '(网络重连中...)';
+        }
     }
 }
 

@@ -7,6 +7,7 @@ import uvicorn
 import asyncio
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 import logging
@@ -14,10 +15,13 @@ from typing import Optional
 import tempfile
 from pydantic import BaseModel
 
+# 添加父目录到Python路径
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 # 导入自定义模块
 from models.simple_model_manager import SimpleModelManager
 from models.risk_analyzer import PoliticalRiskAnalyzer
-from utils.audio_utils import AudioRecorder, AudioProcessor, FileManager, Logger
+from utils.audio_utils import AudioProcessor, FileManager, Logger
 from config.settings import WEB_CONFIG, DATA_PATHS
 
 # Define the secure base directory for server-side audio files
@@ -27,7 +31,7 @@ SUPPORTED_AUDIO_EXTENSIONS = ['.wav', '.mp3', '.m4a', '.flac']
 # 初始化FastAPI应用
 app = FastAPI(
     title="AI语音政治风险监测系统",
-    description="基于FastModelManager(Whisper-large-v3 + Qwen2.5-7B-Instruct)的快速语音政治风险分析系统",
+    description="基于SenseVoice中文语音识别 + Qwen2.5-7B-Instruct的快速语音政治风险分析系统",
     version="2.0.0"
 )
 
@@ -42,37 +46,48 @@ class ServerFileRequest(BaseModel):
     filename: str
 
 # 全局变量
-model_manager: SimpleModelManager = None
-risk_analyzer: PoliticalRiskAnalyzer = None
-audio_recorder: AudioRecorder = None
+model_manager: Optional[SimpleModelManager] = None
+risk_analyzer: Optional[PoliticalRiskAnalyzer] = None
 analysis_results = []
+
+def set_global_model_manager(manager: SimpleModelManager):
+    global model_manager
+    model_manager = manager
+    logging.getLogger(__name__).info(f"Global model_manager set via set_global_model_manager. Speech loaded: {model_manager.whisper_pipeline is not None}, LLM loaded: {model_manager.llm_model is not None}")
 
 @app.on_event("startup")
 async def startup_event():
-    """应用启动时初始化"""
-    global model_manager, risk_analyzer, audio_recorder
-    
+    global model_manager, risk_analyzer
     logger = logging.getLogger(__name__)
-    logger.info("正在启动AI语音政治风险监测系统...")
-    
-    try:
-        # 快速初始化基础组件，模型懒加载
-        model_manager = SimpleModelManager()
-        risk_analyzer = PoliticalRiskAnalyzer()
-        
-        # 音频录制器（可选）
+    logger.info("FastAPI startup_event triggered.")
+
+    if model_manager is None:
+        logger.warning("模型管理器未被预加载。将初始化新的实例并依赖懒加载。")
+        # Create a new instance; models will be loaded on first use by API endpoints.
+        temp_model_manager = SimpleModelManager() # Constructor doesn't load models by default
+        set_global_model_manager(temp_model_manager) # Set it globally
+        # Optionally, one could attempt a full load here if that's desired for non-preloaded scenarios
+        # logger.info("Attempting to initialize models in startup_event as a fallback for non-preloaded manager...")
+        # if not model_manager.initialize_models():
+        #     logger.error("Fallback model initialization in startup_event failed.")
+    else:
+        logger.info("确认使用预加载的模型管理器。")
+        if model_manager.whisper_pipeline and model_manager.llm_model:
+            logger.info("预加载的模型管理器已成功加载语音和LLM模型。")
+        else:
+            logger.warning(f"预加载的模型管理器状态: 语音模型加载 = {model_manager.whisper_pipeline is not None}, LLM模型加载 = {model_manager.llm_model is not None}。部分模型可能仍需懒加载。")
+
+    # Initialize other components if they haven't been set (e.g., by a future preloading mechanism for them)
+    if risk_analyzer is None:
         try:
-            audio_recorder = AudioRecorder()
-        except Exception:
-            audio_recorder = None
-        
-        logger.info("系统启动成功")
-    except Exception as e:
-        logger.error(f"系统启动失败: {e}")
-        # 设置为None，懒加载
-        model_manager = None
-        risk_analyzer = None
-        audio_recorder = None
+            risk_analyzer = PoliticalRiskAnalyzer()
+            logger.info("PoliticalRiskAnalyzer initialized.")
+        except Exception as e:
+            logger.error(f"PoliticalRiskAnalyzer initialization failed: {e}")
+            risk_analyzer = None # Ensure it's None if init fails
+            
+    logger.info("Web服务启动事件处理完成。")
+    print("🌐 Web服务组件已通过startup_event (重新)初始化/检查。")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -82,54 +97,73 @@ async def home(request: Request):
 @app.get("/api/status")
 async def get_system_status():
     """获取系统状态"""
-    # 检查模型是否初始化（懒加载）
-    whisper_ready = False
+    logger = logging.getLogger(__name__)
+    
+    # 检查模型是否初始化
+    sensevoice_ready = False
     llm_ready = False
+    models_info = {
+        "speech_model": "未加载",
+        "llm_model": "未加载",
+        "device": "未知"
+    }
     
     if model_manager:
         try:
-            # 检查是否已经初始化模型
-            whisper_ready = hasattr(model_manager, 'whisper_pipeline') and model_manager.whisper_pipeline is not None
-            llm_ready = hasattr(model_manager, 'llm_model') and model_manager.llm_model is not None
+            # 检查设备信息
+            models_info["device"] = getattr(model_manager, 'device', '未知')
             
-            # 如果还没有初始化，在第一次状态检查时懒加载
-            if not whisper_ready or not llm_ready:
-                if not hasattr(model_manager, '_loading'):
-                    model_manager._loading = True
-                    try:
-                        # 快速初始化模型
-                        if not whisper_ready:
-                            model_manager.load_whisper_model()
-                        if not llm_ready:
-                            model_manager.load_llm_model()
-                        whisper_ready = True
-                        llm_ready = True
-                    except Exception as e:
-                        logging.getLogger(__name__).warning(f"模型懒加载失败: {e}")
-                    finally:
-                        model_manager._loading = False
+            # 检查SenseVoice模型状态 - 检查所有可能的模型属性
+            if hasattr(model_manager, 'whisper_pipeline') and model_manager.whisper_pipeline is not None:
+                sensevoice_ready = True
+                models_info["speech_model"] = "SenseVoice中文语音识别-已加载"
+                print(f"✅ 状态检查: SenseVoice模型已加载 (whisper_pipeline存在)")
+            else:
+                print(f"⚠️ 状态检查: SenseVoice模型未加载")
+                print(f"   - hasattr(model_manager, 'whisper_pipeline'): {hasattr(model_manager, 'whisper_pipeline') if model_manager else 'model_manager为None'}")
+                if hasattr(model_manager, 'whisper_pipeline'):
+                    print(f"   - model_manager.whisper_pipeline is not None: {model_manager.whisper_pipeline is not None}")
+            
+            # 检查LLM模型状态
+            if hasattr(model_manager, 'llm_model') and model_manager.llm_model is not None:
+                llm_ready = True
+                if hasattr(model_manager, 'llm_model_path') and model_manager.llm_model_path:
+                    models_info["llm_model"] = f"本地模型: {model_manager.llm_model_path.name}"
+                else:
+                    models_info["llm_model"] = getattr(model_manager, 'llm_model_name', 'LLM-已加载')
+                print(f"✅ 状态检查: LLM模型已加载")
+            else:
+                print(f"⚠️ 状态检查: LLM模型未加载")
+            
+            # 如果模型还没初始化，提供懒加载状态
+            if not sensevoice_ready or not llm_ready:
+                if not sensevoice_ready:
+                    models_info["speech_model"] = "SenseVoice等待加载"
+                if not llm_ready:
+                    models_info["llm_model"] = "LLM等待加载"
+                    
         except Exception as e:
-            logging.getLogger(__name__).warning(f"状态检查出错: {e}")
+            logger.warning(f"模型状态检查出错: {e}")
     
     status = {
         "system_online": True,
-        "whisper_model_loaded": whisper_ready,
+        "speech_model_loaded": sensevoice_ready,
         "llm_model_loaded": llm_ready,
-        "fast_processing_ready": whisper_ready and llm_ready,
-        "recording_available": audio_recorder is not None,
-        "processing_method": "whisper_large_v3_qwen2.5_7b" if model_manager else "basic_mode",
+        "models_ready": sensevoice_ready and llm_ready,
+        "processing_method": "sensevoice_qwen2.5_7b",
         "model_manager_initialized": model_manager is not None,
+        "models_info": models_info,
         "timestamp": datetime.now().isoformat()
     }
     return JSONResponse(status)
 
 async def analyze_audio_file(processing_file_path: str, original_filename: str, progress_callback: Optional[callable] = None) -> dict:
-    """使用FastModelManager (Whisper-large-v3 + Qwen2.5-7B-Instruct) 分析音频文件"""
+    """使用SenseVoice中文语音识别 + Qwen2.5-7B-Instruct 分析音频文件"""
     logger = logging.getLogger(__name__)
     try:
-        # 使用快速模型组合处理音频
+        # 使用SenseVoice + Qwen2.5模型组合处理音频
         if progress_callback:
-            progress_callback(0.0, "开始使用Whisper + Qwen2.5快速模型分析音频...")
+            progress_callback(0.0, "开始使用SenseVoice + Qwen2.5快速模型分析音频...")
 
         # 使用FastModelManager处理音频
         fast_result = model_manager.process_audio_complete(processing_file_path)
@@ -149,7 +183,7 @@ async def analyze_audio_file(processing_file_path: str, original_filename: str, 
                 "error": "未检测到有效音频内容",
                 "transcription": {"text": "", "language": detected_language}
             }
-        
+            
         if progress_callback:
             progress_callback(95.0, "生成简洁结果...") 
         
@@ -157,6 +191,10 @@ async def analyze_audio_file(processing_file_path: str, original_filename: str, 
         risk_level = risk_analysis.get("risk_level", "未知")
         risk_score = risk_analysis.get("risk_score", 0)
         key_issues = risk_analysis.get("key_issues", [])
+
+        # 获取音频时长
+        from utils.audio_utils import AudioProcessor
+        audio_duration = AudioProcessor.get_audio_duration(processing_file_path)
 
         result = {
             "analysis_id": f"analysis_{int(datetime.now().timestamp())}",
@@ -170,10 +208,11 @@ async def analyze_audio_file(processing_file_path: str, original_filename: str, 
             "processing_info": {
                 "text_length": len(text),
                 "detected_language": detected_language,
-                "processing_method": "whisper_large_v3_qwen2.5_7b",
+                "processing_method": "sensevoice_qwen2.5_7b",
                 "transcription_time": fast_result.get("transcription_time", 0),
                 "analysis_time": fast_result.get("analysis_time", 0),
-                "total_time": fast_result.get("total_processing_time", 0)
+                "total_time": fast_result.get("total_processing_time", 0),
+                "audio_duration": audio_duration  # 音频时长（秒）
             }
         }
         
@@ -199,11 +238,21 @@ async def analyze_audio_file(processing_file_path: str, original_filename: str, 
 @app.post("/api/upload-audio")
 async def upload_audio(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
     """上传音频文件进行分析"""
-    if not model_manager or not model_manager.whisper_pipeline:
-        raise HTTPException(status_code=503, detail="Whisper模型未加载")
+    # 懒加载检查 - 如果模型未加载则尝试加载
+    if not model_manager:
+        raise HTTPException(status_code=503, detail="模型管理器未初始化")
     
+    # 检查并加载SenseVoice模型
+    if not model_manager.whisper_pipeline:
+        print("🎙️  触发SenseVoice模型懒加载...")
+        if not model_manager.load_whisper_model():
+            raise HTTPException(status_code=503, detail="SenseVoice语音识别模型加载失败")
+    
+    # 检查并加载LLM模型
     if not model_manager.llm_model:
-        raise HTTPException(status_code=503, detail="LLM模型未加载")
+        print("🧠 触发LLM模型懒加载...")
+        if not model_manager.load_llm_model():
+            raise HTTPException(status_code=503, detail="LLM模型加载失败")
     
     processing_file_path = None
     try:
@@ -341,13 +390,26 @@ async def analyze_server_file(request: ServerFileRequest, background_tasks: Back
         logger.warning(f"请求分析的文件类型不受支持: {filename} (后缀: {file_path.suffix})")
         raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file_path.suffix}. 支持的类型: {', '.join(SUPPORTED_AUDIO_EXTENSIONS)}")
 
-    if not model_manager or not model_manager.whisper_pipeline:
-        logger.error("Whisper模型未加载，无法分析服务器文件")
-        raise HTTPException(status_code=503, detail="Whisper模型未加载")
+    # 懒加载检查 - 如果模型未加载则尝试加载
+    if not model_manager:
+        logger.error("模型管理器未初始化")
+        raise HTTPException(status_code=503, detail="模型管理器未初始化")
     
+    # 检查并加载SenseVoice模型
+    if not model_manager.whisper_pipeline:
+        logger.info("触发SenseVoice模型懒加载...")
+        print("🎙️  触发SenseVoice模型懒加载...")
+        if not model_manager.load_whisper_model():
+            logger.error("SenseVoice语音识别模型加载失败")
+            raise HTTPException(status_code=503, detail="SenseVoice语音识别模型加载失败")
+    
+    # 检查并加载LLM模型
     if not model_manager.llm_model:
-        logger.error("LLM模型未加载，无法分析服务器文件")
-        raise HTTPException(status_code=503, detail="LLM模型未加载")
+        logger.info("触发LLM模型懒加载...")
+        print("🧠 触发LLM模型懒加载...")
+        if not model_manager.load_llm_model():
+            logger.error("LLM模型加载失败")
+            raise HTTPException(status_code=503, detail="LLM模型加载失败")
 
     try:
         task_id = f"task_server_{int(datetime.now().timestamp())}_{filename.replace('.', '_')}"
@@ -385,65 +447,24 @@ async def analyze_server_file(request: ServerFileRequest, background_tasks: Back
                 app.state.tasks_status[current_task_id]["result"] = result
                 app.state.tasks_status[current_task_id]["status"] = "completed"
                 app.state.tasks_status[current_task_id]["progress"] = 100.0
-                app.state.tasks_status[current_task_id]["message"] = "分析完成"
-                logger.info(f"后台任务 {current_task_id} 完成分析: {audio_path}")
+                logger.info(f"后台任务 {current_task_id} 完成")
             except Exception as e:
-                logger.error(f"后台任务 {current_task_id} 分析服务器文件 {audio_path} 失败: {e}")
+                logger.error(f"后台任务 {current_task_id} 失败: {e}")
                 app.state.tasks_status[current_task_id]["status"] = "failed"
                 app.state.tasks_status[current_task_id]["error"] = str(e)
                 app.state.tasks_status[current_task_id]["progress"] = -1.0
-                app.state.tasks_status[current_task_id]["message"] = f"分析失败: {str(e)[:100]}..."
+
+        background_tasks.add_task(analyze_server_audio_task, file_path, filename, task_id)
         
-        background_tasks.add_task(analyze_server_audio_task, str(file_path), filename, task_id)
-        
-        logger.info(f"已为文件 '{filename}' 创建后台分析任务: {task_id}")
         return JSONResponse({
-            "message": f"文件 '{filename}' 的分析任务已提交", 
+            "message": f"服务器文件 '{filename}' 分析已开始", 
             "task_id": task_id, 
             "status_url": f"/api/task-status/{task_id}"
         })
         
-    except HTTPException as http_exc:
-        raise http_exc
     except Exception as e:
         logger.error(f"分析服务器文件 '{filename}' 时发生意外错误: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"分析文件时发生内部错误: {str(e)}")
-
-@app.post("/api/start-recording")
-async def start_recording():
-    """开始录音"""
-    if not audio_recorder:
-        raise HTTPException(status_code=503, detail="录音功能不可用")
-    
-    try:
-        success = audio_recorder.start_recording()
-        if success:
-            return JSONResponse({"status": "recording_started", "timestamp": datetime.now().isoformat()})
-        else:
-            raise HTTPException(status_code=500, detail="录音启动失败")
-    except Exception as e:
-        logging.error(f"开始录音失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/stop-recording")
-async def stop_recording():
-    """停止录音并分析"""
-    if not audio_recorder:
-        raise HTTPException(status_code=503, detail="录音功能不可用")
-    
-    try:
-        file_path = audio_recorder.stop_recording()
-        if file_path:
-            # 分析录音
-            result = await analyze_audio_file(file_path, os.path.basename(file_path))
-            # 清理临时文件
-            os.remove(file_path)
-            return JSONResponse(result)
-        else:
-            raise HTTPException(status_code=500, detail="录音文件保存失败")
-    except Exception as e:
-        logging.error(f"停止录音失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/analysis-history")
 async def get_analysis_history(limit: int = 50):
@@ -520,14 +541,28 @@ async def analyze_text_direct(request: Request):
         if not text:
             raise HTTPException(status_code=400, detail="文本内容不能为空")
         
-        # 使用FastModelManager的LLM分析
+        # 懒加载检查并使用LLM分析
         llm_analysis = {}
-        if model_manager and model_manager.llm_model:
-            try:
-                llm_analysis = model_manager.analyze_text_risk(text)
-            except Exception as e:
-                logging.warning(f"LLM模型分析失败: {e}")
-                llm_analysis = {"error": "LLM模型分析不可用"}
+        if model_manager:
+            # 检查并加载LLM模型
+            if not model_manager.llm_model:
+                print("🧠 触发LLM模型懒加载...")
+                if not model_manager.load_llm_model():
+                    llm_analysis = {"error": "LLM模型加载失败"}
+                else:
+                    try:
+                        llm_analysis = model_manager.analyze_text_risk(text)
+                    except Exception as e:
+                        logging.warning(f"LLM模型分析失败: {e}")
+                        llm_analysis = {"error": "LLM模型分析失败"}
+            else:
+                try:
+                    llm_analysis = model_manager.analyze_text_risk(text)
+                except Exception as e:
+                    logging.warning(f"LLM模型分析失败: {e}")
+                    llm_analysis = {"error": "LLM模型分析失败"}
+        else:
+            llm_analysis = {"error": "模型管理器未初始化"}
         
         # 基于规则的分析作为备用
         rule_analysis = {}
