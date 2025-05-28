@@ -628,3 +628,76 @@ class SimpleModelManager:
         except Exception as e:
             self.logger.warning(f"语言检测失败: {e}")
             return "unknown"
+    
+    def generate_response(self, prompt: str, max_tokens: int = 512, temperature: float = 0.1) -> str:
+        """
+        生成AI响应 - 为风险分析器提供的接口
+        
+        Args:
+            prompt: 输入提示词
+            max_tokens: 最大生成token数
+            temperature: 温度参数
+            
+        Returns:
+            AI生成的响应文本
+        """
+        # 懒加载检查
+        if not self.llm_model or not self.llm_tokenizer:
+            self.logger.warning("LLM模型未加载，尝试加载...")
+            if not self.load_llm_model():
+                raise RuntimeError("LLM模型加载失败")
+        
+        try:
+            # 使用chat模板格式
+            messages = [
+                {"role": "system", "content": "你是一个专业的内容风险分析专家。"},
+                {"role": "user", "content": prompt}
+            ]
+            
+            # 应用chat模板
+            formatted_prompt = self.llm_tokenizer.apply_chat_template(
+                messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            
+            # 编码
+            inputs = self.llm_tokenizer(
+                formatted_prompt, 
+                return_tensors="pt", 
+                truncation=True, 
+                max_length=2048
+            )
+            
+            # 移动到设备
+            if self.device.startswith("cuda"):
+                inputs = inputs.to(self.device)
+            
+            # 生成
+            with torch.no_grad():
+                outputs = self.llm_model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    do_sample=temperature > 0,
+                    pad_token_id=self.llm_tokenizer.eos_token_id
+                )
+            
+            # 解码
+            input_length = inputs["input_ids"].shape[1]
+            generated_ids = outputs[:, input_length:]
+            response = self.llm_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+            
+            return response.strip()
+            
+        except Exception as e:
+            self.logger.error(f"AI响应生成失败: {e}")
+            raise
+    
+    def generate_text(self, prompt: str, max_length: int = 1000, temperature: float = 0.1, do_sample: bool = True) -> str:
+        """
+        兼容接口：生成文本
+        调用generate_response方法
+        """
+        max_tokens = min(max_length - len(prompt.split()), 512)  # 估算token数
+        return self.generate_response(prompt, max_tokens=max_tokens, temperature=temperature)

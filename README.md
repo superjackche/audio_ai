@@ -1,4 +1,4 @@
-# 🎯 AI语音政治风险监测系统 <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Objects/Robot.png" alt="Robot" width="50" height="50" />
+# 🎯 AI语音政治风险监测系统
 
 <div align="center">
 

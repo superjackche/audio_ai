@@ -55,6 +55,9 @@ templates = Jinja2Templates(directory=APP_MAIN_PY_DIR.parent / "templates")
 class ServerFileRequest(BaseModel):
     filename: str
 
+class TextInput(BaseModel):  # Added TextInput definition
+    text: str
+
 # 全局变量
 model_manager: Optional[SimpleModelManager] = None
 risk_analyzer: Optional[PoliticalRiskAnalyzer] = None
@@ -90,14 +93,50 @@ async def startup_event():
     # Initialize other components if they haven't been set (e.g., by a future preloading mechanism for them)
     if risk_analyzer is None:
         try:
-            risk_analyzer = PoliticalRiskAnalyzer()
-            logger.info("PoliticalRiskAnalyzer initialized.")
+            # 将模型管理器传递给风险分析器，让它能够使用AI模型
+            risk_analyzer = PoliticalRiskAnalyzer(model_manager=model_manager)
+            logger.info("PoliticalRiskAnalyzer initialized with AI model support.")
         except Exception as e:
             logger.error(f"PoliticalRiskAnalyzer initialization failed: {e}")
-            risk_analyzer = None # Ensure it's None if init fails
+            # 如果初始化失败，尝试不带模型管理器初始化
+            try:
+                risk_analyzer = PoliticalRiskAnalyzer()
+                logger.warning("PoliticalRiskAnalyzer initialized without AI model support.")
+            except Exception as e2:
+                logger.error(f"PoliticalRiskAnalyzer fallback initialization also failed: {e2}")
+                risk_analyzer = None # Ensure it's None if init fails
             
     logger.info("Web服务启动事件处理完成。")
     print("🌐 Web服务组件已通过startup_event (重新)初始化/检查。")
+
+def get_risk_analyzer() -> Optional[PoliticalRiskAnalyzer]:  # Added get_risk_analyzer function
+    """获取全局风险分析器实例，如果未初始化则尝试初始化。"""
+    global risk_analyzer
+    global model_manager # Ensure model_manager is also accessible
+    logger = logging.getLogger(__name__)
+
+    if risk_analyzer is None:
+        logger.warning("get_risk_analyzer: Risk analyzer is None. Attempting to initialize.")
+        if model_manager is None:
+            logger.warning("get_risk_analyzer: Model manager is also None. Initializing a new SimpleModelManager.")
+            model_manager = SimpleModelManager()
+            # Potentially initialize models if SimpleModelManager doesn't do it on construction or lazy load
+            # For example: model_manager.initialize_models()
+
+        try:
+            risk_analyzer = PoliticalRiskAnalyzer(model_manager=model_manager)
+            logger.info("get_risk_analyzer: PoliticalRiskAnalyzer initialized successfully with model_manager.")
+        except Exception as e:
+            logger.error(f"get_risk_analyzer: Failed to initialize PoliticalRiskAnalyzer: {e}")
+            risk_analyzer = None # Explicitly set to None on failure
+    
+    # Ensure the existing risk_analyzer has a model_manager if it's supposed to.
+    if risk_analyzer and risk_analyzer.model_manager is None and model_manager is not None:
+        logger.warning("get_risk_analyzer: Existing risk_analyzer has no model_manager. Attempting to assign the global model_manager.")
+        risk_analyzer.model_manager = model_manager
+        logger.info(f"get_risk_analyzer: Assigned model_manager. Risk analyzer AI support: {risk_analyzer.model_manager is not None}")
+
+    return risk_analyzer
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -542,56 +581,38 @@ async def get_statistics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/analyze-text")
-async def analyze_text_direct(request: Request):
-    """直接分析文本"""
+async def analyze_text_direct(text_input: TextInput):
+    """直接分析文本内容，优先使用LLM，失败则回退"""
     try:
-        data = await request.json()
-        text = data.get("text", "").strip()
-        
-        if not text:
+        text = text_input.text
+        if not text or not text.strip():
             raise HTTPException(status_code=400, detail="文本内容不能为空")
+
+        # 获取风险分析器实例
+        risk_analyzer = get_risk_analyzer()
+        if not risk_analyzer:
+            raise HTTPException(status_code=500, detail="风险分析器未初始化")
+
+        # 使用统一的分析方法
+        analysis_result = risk_analyzer.analyze(text)
         
-        # 懒加载检查并使用LLM分析
-        llm_analysis = {}
-        if model_manager:
-            # 检查并加载LLM模型
-            if not model_manager.llm_model:
-                print("🧠 触发LLM模型懒加载...")
-                if not model_manager.load_llm_model():
-                    llm_analysis = {"error": "LLM模型加载失败"}
-                else:
-                    try:
-                        llm_analysis = model_manager.analyze_text_risk(text)
-                    except Exception as e:
-                        logging.warning(f"LLM模型分析失败: {e}")
-                        llm_analysis = {"error": "LLM模型分析失败"}
-            else:
-                try:
-                    llm_analysis = model_manager.analyze_text_risk(text)
-                except Exception as e:
-                    logging.warning(f"LLM模型分析失败: {e}")
-                    llm_analysis = {"error": "LLM模型分析失败"}
+        if not analysis_result or "error" in analysis_result:
+            # 如果分析失败或返回错误，则使用备用结果或抛出异常
+            logging.error(f"文本直接分析失败: {analysis_result.get('error', '未知错误')}")
+            # 尝试从备用分析获取信息，如果analyze方法本身处理了回退，这里可能不需要
+            # 但为了健壮性，可以保留一个最终的备用方案
+            fallback_data = risk_analyzer._fallback_analysis(text) # 调用内部备用方法以获取结构
+            risk_level = fallback_data.get("risk_level", "未知")
+            risk_score = fallback_data.get("total_score", 0)
+            key_issues = fallback_data.get("key_concerns", ["分析失败"])
+            processing_method = fallback_data.get("analysis_method", "备用分析")
         else:
-            llm_analysis = {"error": "模型管理器未初始化"}
-        
-        # 基于规则的分析作为备用
-        rule_analysis = {}
-        try:
-            rule_analysis = risk_analyzer.analyze_text(text)
-        except Exception as e:
-            logging.warning(f"规则分析失败: {e}")
-            rule_analysis = {"error": "规则分析不可用"}
-        
-        # 使用LLM分析结果，如果不可用则使用规则分析
-        if llm_analysis and "error" not in llm_analysis:
-            risk_level = llm_analysis.get("risk_level", "未知")
-            risk_score = llm_analysis.get("risk_score", 0)
-            key_issues = llm_analysis.get("key_issues", [])
-        else:
-            risk_level = rule_analysis.get("risk_level", "未知")
-            risk_score = rule_analysis.get("total_score", 0)
-            key_issues = rule_analysis.get("keywords", [])
-        
+            risk_level = analysis_result.get("risk_level", "未知")
+            risk_score = analysis_result.get("total_score", 0) # 确保使用 total_score
+            # AI分析结果中的风险因素和关注点可能更丰富
+            key_issues = analysis_result.get("key_concerns", []) or analysis_result.get("risk_factors", [])
+            processing_method = analysis_result.get("analysis_method", "AI智能评估")
+
         # 简化的结果格式
         result = {
             "analysis_id": f"text_analysis_{int(datetime.now().timestamp())}",
@@ -603,15 +624,29 @@ async def analyze_text_direct(request: Request):
             },
             "processing_info": {
                 "text_length": len(text),
-                "processing_method": "text_direct_analysis"
+                "processing_method": processing_method # 使用从分析结果获取的方法
             }
         }
         
-        # 保存结果
-        analysis_results.append(result)
+        # 保存结果到内存列表
+        analysis_results.append(result) 
+        
+        # 保存结果到文件
+        try:
+            output_dir = DATA_PATHS["output_dir"]
+            output_dir.mkdir(parents=True, exist_ok=True) # 确保目录存在
+            output_file = output_dir / f"{result['analysis_id']}.json"
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+            logging.info(f"文本分析结果已保存到: {output_file}")
+        except Exception as e:
+            logging.error(f"保存文本分析结果到文件失败: {e}")
+            # 即使保存文件失败，也应返回结果给用户
         
         return JSONResponse(result)
         
     except Exception as e:
-        logging.error(f"文本分析失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logging.error(f"文本分析端点错误: {e}")
+        import traceback
+        traceback.print_exc() # 打印详细堆栈信息
+        raise HTTPException(status_code=500, detail=f"服务器内部错误: {str(e)}")
