@@ -116,28 +116,28 @@ def get_ultra_fast_model_config():
     # 基础配置
     config = {
         "model_optimization": {
-            # 模型选择策略：优先更快的3B模型
-            "primary_model": "Qwen/Qwen2.5-Omni-3B",
-            "fallback_model": "Qwen/Qwen2.5-Omni-7B",
+            # 模型选择策略：使用标准的Qwen2.5文本模型
+            "primary_model": "Qwen/Qwen2.5-7B-Instruct",
+            "fallback_model": "Qwen/Qwen2.5-7B-Instruct",
             
-            # 量化配置
+            # 量化配置 - 暂时禁用以避免GLIBC兼容性问题
             "quantization": {
-                "enabled": True,
-                "method": "bitsandbytes",  # 使用4bit量化
-                "load_in_4bit": True,
-                "bnb_4bit_compute_dtype": "float16",  # 使用字符串而不是torch.dtype
-                "bnb_4bit_use_double_quant": True,
+                "enabled": False,  # 禁用量化避免兼容性问题
+                "method": "none",  # 不使用量化
+                "load_in_4bit": False,  # 禁用4bit量化
+                "bnb_4bit_compute_dtype": "float16",
+                "bnb_4bit_use_double_quant": False,
                 "bnb_4bit_quant_type": "nf4"
             },
             
-            # 模型加载优化
+            # 模型加载优化 - 使用更稳定的配置
             "loading": {
                 "torch_dtype": "float16",  # 使用字符串而不是torch.dtype
                 "device_map": "auto",
                 "low_cpu_mem_usage": True,
                 "trust_remote_code": True,
-                "use_flash_attention_2": True,  # Flash Attention 2.0
-                "attn_implementation": "flash_attention_2"
+                "use_flash_attention_2": False,  # 禁用Flash Attention 2.0
+                "attn_implementation": "eager"  # 使用标准eager实现，更稳定
             }
         },
         
@@ -317,6 +317,23 @@ class UltraPerformanceOptimizer:
     
     def get_optimized_config(self):
         """获取优化配置（兼容方法）"""
+        # 从model_optimization中只提取有效的模型加载参数
+        model_optimization = self.config.get("model_optimization", {})
+        loading_config = model_optimization.get("loading", {})
+        
+        # 只包含有效的模型加载参数
+        valid_model_kwargs = {}
+        valid_keys = [
+            "torch_dtype", "device_map", "low_cpu_mem_usage", 
+            "trust_remote_code", "use_flash_attention_2", 
+            "attn_implementation", "cache_dir", "local_files_only",
+            "use_safetensors"
+        ]
+        
+        for key in valid_keys:
+            if key in loading_config:
+                valid_model_kwargs[key] = loading_config[key]
+        
         return {
             "whisper_kwargs": {
                 "torch_dtype": torch.float16,  # 这里转换为实际的torch类型
@@ -324,9 +341,16 @@ class UltraPerformanceOptimizer:
                 "use_safetensors": True
                 # 移除 trust_remote_code 和 device_map，这些对 Whisper pipeline 不适用
             },
-            "model_kwargs": self.config.get("model_optimization", {}),
+            "model_kwargs": valid_model_kwargs,
             "gpu_kwargs": self.config.get("gpu_optimization", {}),
-            "inference_kwargs": self.config.get("inference_optimization", {})
+            "inference_kwargs": self.config.get("inference_optimization", {}),
+            "use_4bit_quantization": model_optimization.get("quantization", {}).get("enabled", False),
+            "model_name": model_optimization.get("primary_model", "Qwen/Qwen2.5-7B-Instruct"),
+            "fallback_model": model_optimization.get("fallback_model", "Qwen/Qwen2.5-7B-Instruct"),
+            "whisper_chunk_length": 30,
+            "whisper_batch_size": 8,
+            "batch_size": 8,
+            "max_length": 2048
         }
     
     def optimize_torch_settings(self):

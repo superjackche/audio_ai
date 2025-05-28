@@ -28,7 +28,7 @@ class AudioMonitorApp {
         document.getElementById('start-recording').addEventListener('click', () => this.startRecording());
         document.getElementById('stop-recording').addEventListener('click', () => this.stopRecording());
           // 服务器文件分析
-        document.getElementById('refresh-server-files-btn').addEventListener('click', () => this.loadServerFiles());
+        document.getElementById('refresh-server-files').addEventListener('click', () => this.loadServerFiles()); // Corrected ID
         document.getElementById('analyze-server-file-btn').addEventListener('click', () => this.analyzeSelectedServerFile());
 
         // 文本分析
@@ -490,61 +490,276 @@ class AudioMonitorApp {
                 // but if it persists, the timeout will catch it.
             }
         }, pollInterval);
-    }
-
-    async analyzeText() {
-        const text = document.getElementById('input-text').value.trim();
+    }    async analyzeText() {
+        const text = document.getElementById('text-input').value.trim();
         
         if (!text) {
             return this.showError('请输入要分析的文本');
         }
+
+        const progressContainer = document.getElementById('text-analysis-progress');
+        const resultContainer = document.getElementById('text-result');
         
         try {
+            // 显示进度条
+            if (progressContainer) {
+                progressContainer.style.display = 'block';
+                const progressBar = progressContainer.querySelector('.progress-bar');
+                const progressText = document.getElementById('text-progress-text');
+                
+                if (progressBar) {
+                    progressBar.style.width = '20%';
+                    progressBar.setAttribute('aria-valuenow', '20');
+                }
+                if (progressText) {
+                    progressText.textContent = '正在分析文本...';
+                }
+            }
+
             const response = await fetch('/api/analyze-text', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text })
             });
+            
+            // 更新进度
+            if (progressContainer) {
+                const progressBar = progressContainer.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = '80%';
+                    progressBar.setAttribute('aria-valuenow', '80');
+                }
+            }
+
             const result = await response.json();
             
             if (response.ok) {
+                // 完成进度
+                if (progressContainer) {
+                    const progressBar = progressContainer.querySelector('.progress-bar');
+                    const progressText = document.getElementById('text-progress-text');
+                    if (progressBar) {
+                        progressBar.style.width = '100%';
+                        progressBar.setAttribute('aria-valuenow', '100');
+                    }
+                    if (progressText) {
+                        progressText.textContent = '分析完成';
+                    }
+                    
+                    // 隐藏进度条
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                    }, 1000);
+                }
+                
                 this.showSuccess('文本分析完成');
-                this.displayAnalysisResult(result, 'text-analysis-result');
+                this.displayTextAnalysisResult(result, resultContainer);
             } else {
                 this.showError(result.detail || '文本分析失败');
+                if (progressContainer) {
+                    progressContainer.style.display = 'none';
+                }
             }
         } catch (error) {
             console.error('分析文本失败:', error);
             this.showError('文本分析失败，请稍后重试');
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
         }
     }
 
-    async loadHistory() {
+    displayTextAnalysisResult(result, container) {
+        if (!container) {
+            this.log('Text result container not found');
+            return;
+        }
+
+        container.innerHTML = '';
+
+        if (result.error) {
+            container.innerHTML = `<div class="alert alert-danger">${result.error}</div>`;
+            return;
+        }
+
+        // 创建结果卡片
+        const card = document.createElement('div');
+        card.className = 'card analysis-card';
+        
+        let cardContent = `
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-brain me-2"></i>文本分析结果
+                </h5>
+        `;
+
+        // 显示风险评估
+        if (result.risk_assessment) {
+            const risk = result.risk_assessment;
+            const riskClass = this.getRiskLevelClass(risk.risk_level);
+            
+            cardContent += `
+                <div class="mb-3">
+                    <h6 class="text-primary">
+                        <i class="fas fa-exclamation-triangle me-2"></i>风险评估
+                    </h6>
+                    <div class="alert ${riskClass}">
+                        <strong>风险等级：</strong>${risk.risk_level}<br>
+                        <strong>风险评分：</strong>${risk.risk_score}/100
+                    </div>
+                </div>
+            `;
+
+            // 显示关键问题
+            if (risk.key_issues && risk.key_issues.length > 0) {
+                cardContent += `
+                    <div class="mb-3">
+                        <h6 class="text-warning">
+                            <i class="fas fa-list me-2"></i>关键问题
+                        </h6>
+                        <ul class="list-group list-group-flush">
+                `;
+                risk.key_issues.forEach(issue => {
+                    cardContent += `<li class="list-group-item">${issue}</li>`;
+                });
+                cardContent += `</ul></div>`;
+            }
+        }
+
+        // 显示处理信息
+        if (result.processing_info) {
+            const info = result.processing_info;
+            cardContent += `
+                <div class="mb-3">
+                    <h6 class="text-info">
+                        <i class="fas fa-info-circle me-2"></i>处理信息
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                文本长度：${info.text_length} 字符<br>
+                                处理方法：${info.processing_method}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 显示时间戳
+        if (result.timestamp) {
+            cardContent += `
+                <div class="text-muted">
+                    <small>
+                        <i class="fas fa-clock me-1"></i>
+                        分析时间：${new Date(result.timestamp).toLocaleString()}
+                    </small>
+                </div>
+            `;
+        }
+
+        cardContent += '</div>';
+        card.innerHTML = cardContent;
+        container.appendChild(card);
+
+        // 记录到分析历史
+        this.analysisHistory.unshift(result);
+        if (this.analysisHistory.length > 100) this.analysisHistory.pop();
+
+        // 提示用户查看结果
+        this.showToast('文本分析结果已生成，请查看下方内容。', 'success');
+    }    async loadHistory() {
         this.log("加载历史记录...");
+        const container = document.getElementById('history-results');
+        if (!container) {
+            this.log('History results container not found');
+            return;
+        }
+
         try {
-            const response = await fetch('/api/analysis-history'); // Corrected path
+            // 显示加载状态
+            container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>正在加载历史记录...</div>';
+            
+            const response = await fetch('/api/analysis-history');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const history = await response.json();
+            const data = await response.json();
             
-            const container = document.getElementById('history-results');
             container.innerHTML = ''; // 清空现有历史
             
-            history.forEach(item => {
+            if (!data.results || data.results.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">暂无分析历史记录</div>';
+                return;
+            }
+            
+            // 显示历史记录
+            data.results.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'card mb-3 analysis-card';
-                card.innerHTML = `
+                
+                let cardContent = `
                     <div class="card-body">
-                        <h5 class="card-title">历史记录 - ${item.timestamp}</h5>
-                        <p class="card-text">${item.text}</p>
-                        <p class="card-text"><small class="text-muted">分析时间: ${item.analysis_time}秒</small></p>
+                        <h6 class="card-title">
+                            <i class="fas fa-history me-2"></i>
+                            ${item.analysis_id || '未知ID'}
+                        </h6>
+                `;
+
+                // 显示风险评估
+                if (item.risk_assessment) {
+                    const risk = item.risk_assessment;
+                    const riskClass = this.getRiskLevelClass(risk.risk_level);
+                    cardContent += `
+                        <div class="mb-2">
+                            <span class="badge ${riskClass.replace('alert-', 'bg-')}">${risk.risk_level}</span>
+                            <small class="text-muted ms-2">评分: ${risk.risk_score}/100</small>
+                        </div>
+                    `;
+                }
+
+                // 显示处理信息
+                if (item.processing_info) {
+                    cardContent += `
+                        <p class="card-text">
+                            <small class="text-muted">
+                                文件: ${item.original_filename || '未知文件'}<br>
+                                处理方法: ${item.processing_info.processing_method || '未知方法'}<br>
+                                文本长度: ${item.processing_info.text_length || 0} 字符
+                            </small>
+                        </p>
+                    `;
+                }
+
+                // 显示时间
+                if (item.timestamp) {
+                    cardContent += `
+                        <p class="card-text">
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                ${new Date(item.timestamp).toLocaleString()}
+                            </small>
+                        </p>
+                    `;
+                }
+
+                cardContent += `
+                        <button class="btn btn-sm btn-outline-primary" onclick="app.showDetailedResult('${item.analysis_id}')">
+                            查看详情
+                        </button>
                     </div>
                 `;
+                
+                card.innerHTML = cardContent;
                 container.appendChild(card);
             });
+
+            this.showToast(`已加载 ${data.results.length} 条历史记录`, 'success');
+            
         } catch (error) {
             console.error('加载历史记录失败:', error);
+            container.innerHTML = `<div class="alert alert-danger">加载历史记录失败: ${error.message}</div>`;
+            this.showError('加载历史记录失败');
         }
     }
 
@@ -905,19 +1120,67 @@ class AudioMonitorApp {
 
     // 获取风险等级对应的CSS类
     getRiskLevelClass(riskLevel) {
-        switch (riskLevel?.toLowerCase()) {
-            case 'high':
-            case '高':
-                return 'alert-danger';
-            case 'medium':
-            case '中':
-                return 'alert-warning';
-            case 'low':
-            case '低':
-                return 'alert-success';
-            default:
-                return 'alert-info';
+        if (!riskLevel) return 'alert-info';
+        
+        const level = riskLevel.toString().toLowerCase();
+        if (level.includes('高') || level.includes('high') || level.includes('danger')) {
+            return 'alert-danger';
+        } else if (level.includes('中') || level.includes('medium') || level.includes('warning')) {
+            return 'alert-warning';
+        } else if (level.includes('低') || level.includes('low') || level.includes('success')) {
+            return 'alert-success';
+        } else {
+            return 'alert-info';
         }
+    }
+
+    generateDetailedResultHTML(result) {
+        if (!result) return '<p>无详细结果可显示</p>';
+
+        let html = '<div class="detailed-analysis-result">';
+        
+        // 基本信息
+        html += `<h6>分析ID: ${result.analysis_id || '未知'}</h6>`;
+        html += `<p><strong>文件名:</strong> ${result.original_filename || '未知文件'}</p>`;
+        html += `<p><strong>分析时间:</strong> ${result.timestamp ? new Date(result.timestamp).toLocaleString() : '未知时间'}</p>`;
+
+        // 风险评估
+        if (result.risk_assessment) {
+            const risk = result.risk_assessment;
+            html += `<div class="mb-3">
+                <h6>风险评估</h6>
+                <div class="alert ${this.getRiskLevelClass(risk.risk_level)}">
+                    <strong>风险等级:</strong> ${risk.risk_level}<br>
+                    <strong>风险评分:</strong> ${risk.risk_score}/100
+                </div>
+            </div>`;
+
+            if (risk.key_issues && risk.key_issues.length > 0) {
+                html += '<div class="mb-3"><h6>关键问题</h6><ul>';
+                risk.key_issues.forEach(issue => {
+                    html += `<li>${issue}</li>`;
+                });
+                html += '</ul></div>';
+            }
+        }
+
+        // 处理信息
+        if (result.processing_info) {
+            const info = result.processing_info;
+            html += `<div class="mb-3">
+                <h6>处理信息</h6>
+                <p><strong>文本长度:</strong> ${info.text_length || 0} 字符</p>
+                <p><strong>处理方法:</strong> ${info.processing_method || '未知'}</p>
+            `;
+            
+            if (info.total_time) {
+                html += `<p><strong>处理时间:</strong> ${info.total_time.toFixed(2)} 秒</p>`;
+            }
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
     }
 }
 

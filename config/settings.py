@@ -26,12 +26,16 @@ except ImportError:
 BASE_DIR = Path(__file__).parent.parent.absolute()
 
 # 模型配置
-_llm_model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-Omni-3B")  # 默认使用更快的3B模型
+_llm_model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-3B-Instruct")  # 使用更轻量的3B模型避免卡死
 
 # 动态配置：根据性能优化配置调整
 if PERFORMANCE_CONFIG:
-    optimal_config = PERFORMANCE_CONFIG["model_config"]["model_optimization"]
-    _llm_model_name = optimal_config["primary_model"]
+    try:
+        optimal_config = PERFORMANCE_CONFIG["model_config"]["model_optimization"]
+        _llm_model_name = optimal_config["primary_model"]
+    except (KeyError, TypeError):
+        # 如果性能配置有问题，使用默认值
+        _llm_model_name = "Qwen/Qwen2.5-7B-Instruct"
 
 MODEL_CONFIG = {
     "default": {
