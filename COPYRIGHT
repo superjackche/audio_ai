@@ -1,0 +1,82 @@
+AI语音政治风险监控系统
+Copyright (c) 2025 superjackche
+GitHub: https://github.com/superjackche/audio_ai
+
+本项目包含以下组件的版权信息：
+
+==================================================
+核心系统组件
+==================================================
+
+主要开发者: superjackche
+项目地址: https://github.com/superjackche/audio_ai
+许可协议: MIT License (见 LICENSE 文件)
+
+核心文件：
+- launch.py - 系统启动器
+- app/main_new.py - FastAPI Web应用
+- models/simple_model_manager.py - AI模型管理器
+- models/risk_analyzer.py - 风险分析模块
+- utils/audio_utils.py - 音频处理工具
+
+==================================================
+第三方依赖版权信息
+==================================================
+
+PyTorch
+  版权: Copyright (c) 2016-2024 Facebook, Inc. (Adam Paszke)
+  许可: BSD-3-Clause License
+
+Transformers (Hugging Face)
+  版权: Copyright 2018 The HuggingFace Inc. team
+  许可: Apache License 2.0
+
+OpenAI Whisper
+  版权: Copyright (c) 2022 OpenAI
+  许可: MIT License
+
+FastAPI
+  版权: Copyright (c) 2018 Sebastián Ramírez
+  许可: MIT License
+
+Uvicorn
+  版权: Copyright (c) 2017-present Tom Christie
+  许可: BSD License
+
+Librosa
+  版权: Copyright (c) 2013-2023 librosa development team
+  许可: ISC License
+
+NumPy
+  版权: Copyright (c) 2005-2024 NumPy Developers
+  许可: BSD License
+
+SciPy
+  版权: Copyright (c) 2001-2024 SciPy Developers
+  许可: BSD License
+
+==================================================
+AI模型版权信息
+==================================================
+
+使用的预训练模型来自Hugging Face Model Hub，
+具体许可协议请参考各模型页面的许可声明。
+
+常用模型许可：
+- BERT系列: Apache License 2.0
+- Whisper系列: MIT License
+- Qwen系列: 具体参考模型页面
+
+==================================================
+使用声明
+==================================================
+
+本项目遵循开源原则，允许自由使用、修改和分发。
+使用时请遵守：
+
+1. 保留原始版权声明
+2. 遵守第三方库的许可协议
+3. 确保使用场景的合法性
+4. 承担相应的法律责任
+
+更多详细信息请参阅 LICENSE 文件。

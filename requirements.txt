@@ -6,6 +6,10 @@
 # 🎯 目标: 提供高精度、低延迟的语音风险监测
 # 🔒 特点: 本地部署、隐私保护、开箱即用
 # 
+# Copyright (c) 2025 superjackche
+# GitHub: https://github.com/superjackche/audio_ai
+# Licensed under the MIT License. See LICENSE file for details.
+# 
 # ========================================
 
 # 🔥 核心AI框架 - 深度学习基础

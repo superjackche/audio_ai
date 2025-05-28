@@ -2,6 +2,10 @@
 """
 简化的快速模型管理器 - 恢复原始启动速度
 使用 Whisper-large-v3 + Qwen2.5-7B-Instruct 组合
+
+Copyright (c) 2025 superjackche
+GitHub: https://github.com/superjackche/audio_ai
+Licensed under the MIT License. See LICENSE file for details.
 """
 
 import os

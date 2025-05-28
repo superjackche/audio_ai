@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+"""
+AI语音政治风险监控系统 - FastAPI Web应用
+=====================================
+
+Copyright (c) 2025 superjackche
+GitHub: https://github.com/superjackche/audio_ai
+Licensed under the MIT License. See LICENSE file for details.
+"""
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates

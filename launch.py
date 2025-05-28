@@ -4,6 +4,10 @@
 ==========================================
 
 优化启动流程，前端立即可用，模型后台加载
+
+Copyright (c) 2025 superjackche
+GitHub: https://github.com/superjackche/audio_ai
+Licensed under the MIT License. See LICENSE file for details.
 """
 
 import os
