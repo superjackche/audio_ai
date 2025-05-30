@@ -269,7 +269,7 @@ class SimpleModelManager:
             
             model_kwargs = {
                 "trust_remote_code": True,
-                "torch_dtype": torch.float16 if self.device.startswith("cuda") else torch.float32,
+                # "torch_dtype": torch.float16 if self.device.startswith("cuda") else torch.float32, # load_in_8bit handles dtype
                 "low_cpu_mem_usage": True,
                 "cache_dir": str(DATA_PATHS['models_dir'] / 'cache'),
             }
@@ -284,6 +284,8 @@ class SimpleModelManager:
             
             if self.device.startswith("cuda"):
                 model_kwargs["device_map"] = "auto"
+                model_kwargs["load_in_8bit"] = True # <--- 启用8位量化
+                print("   💡 LLM将以8位模式加载以减少内存使用。请确保已安装 'bitsandbytes' 库 (pip install bitsandbytes)。")
             
             try:
                 self.llm_model = AutoModelForCausalLM.from_pretrained(
@@ -454,6 +456,8 @@ class SimpleModelManager:
             generated_ids = outputs[:, input_length:]
             response = self.llm_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
             
+            self.logger.info(f"Raw LLM response for risk analysis of text starting with: '{text[:200]}...' -> Response: {response}") # 记录LLM原始响应
+
             analysis_time = time.time() - start_time
             
             # 解析结果
@@ -527,6 +531,7 @@ class SimpleModelManager:
 2. 评估意识形态倾向  
 3. 检测价值观冲突
 4. 给出风险等级（低风险/中风险/高风险）
+5. 重要区分：如果文本是在客观描述、批判、分析或讨论某种有潜在风险的观点（例如，历史虚无主义、极端思想等），而不是在直接宣扬、煽动或推广这些观点，那么风险等级应相应调整。例如，客观介绍历史虚无主义的表现和危害，旨在提高警惕，这本身应被视为低风险或中风险，而不是高风险。请关注文本的整体意图和上下文。
 
 请以JSON格式返回分析结果：
 {{
